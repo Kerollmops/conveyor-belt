@@ -16,13 +16,37 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (close_on_esc, rotate_camera, setup_scene_once_loaded, keyboard_animation_control),
+            (
+                close_on_esc,
+                reset_cars_transform,
+                setup_scene_once_loaded,
+                keyboard_animation_control,
+                track_character,
+            ),
         )
         .run();
 }
 
 #[derive(Resource)]
 struct Animations(Vec<Handle<AnimationClip>>);
+
+#[derive(Component)]
+struct Character;
+
+#[derive(Bundle)]
+struct CharacterBundle {
+    marker: Character,
+    scene: SceneBundle,
+}
+
+#[derive(Component)]
+struct Car;
+
+#[derive(Bundle)]
+struct CarBundle {
+    marker: Car,
+    scene: SceneBundle,
+}
 
 /// Once the scene is loaded, start the animation
 /// set up a simple 3D scene
@@ -66,37 +90,55 @@ fn setup(
     });
 
     // Character
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("Animated Characters bundle/Animations/run.glb#Scene0"),
-        // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
-        ..default()
+    commands.spawn(CharacterBundle {
+        marker: Character,
+        scene: SceneBundle {
+            scene: asset_server.load("Animated Characters bundle/Animations/run.glb#Scene0"),
+            // transform: Transform::from_xyz(-4.0994653, -0.21640539, -0.54153347),
+            ..default()
+        },
     });
 
     // Cars
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("Mini Car Kit/Models/glTF format/carAmbulance.gltf#Scene0"),
-        // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
-        ..default()
+    commands.spawn(CarBundle {
+        marker: Car,
+        scene: SceneBundle {
+            scene: asset_server.load("Mini Car Kit/Models/glTF format/carAmbulance.gltf#Scene0"),
+            // transform: Transform::from_xyz(-4.0994653, -0.21640539, -0.54153347),
+            ..default()
+        },
     });
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("Mini Car Kit/Models/glTF format/carDelivery.gltf#Scene0"),
-        // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
-        ..default()
+    commands.spawn(CarBundle {
+        marker: Car,
+        scene: SceneBundle {
+            scene: asset_server.load("Mini Car Kit/Models/glTF format/carDelivery.gltf#Scene0"),
+            // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
+            ..default()
+        },
     });
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("Mini Car Kit/Models/glTF format/carFormula.gltf#Scene0"),
-        // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
-        ..default()
+    commands.spawn(CarBundle {
+        marker: Car,
+        scene: SceneBundle {
+            scene: asset_server.load("Mini Car Kit/Models/glTF format/carFormula.gltf#Scene0"),
+            // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
+            ..default()
+        },
     });
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("Mini Car Kit/Models/glTF format/carGarbage.gltf#Scene0"),
-        // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
-        ..default()
+    commands.spawn(CarBundle {
+        marker: Car,
+        scene: SceneBundle {
+            scene: asset_server.load("Mini Car Kit/Models/glTF format/carGarbage.gltf#Scene0"),
+            // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
+            ..default()
+        },
     });
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("Mini Car Kit/Models/glTF format/carJeep.gltf#Scene0"),
-        // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
-        ..default()
+    commands.spawn(CarBundle {
+        marker: Car,
+        scene: SceneBundle {
+            scene: asset_server.load("Mini Car Kit/Models/glTF format/carJeep.gltf#Scene0"),
+            // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
+            ..default()
+        },
     });
 
     // circular base
@@ -126,6 +168,22 @@ fn setup(
     });
 }
 
+fn reset_cars_transform(
+    q_cars: Query<&Children, With<Car>>,
+    q_children: Query<&Children>,
+    mut q_transforms: Query<&mut Transform>,
+) {
+    for children in &q_cars {
+        for &child in children.iter() {
+            let nested_child = q_children.get(child).unwrap();
+            for &nested_child in nested_child.iter() {
+                let mut transform = q_transforms.get_mut(nested_child).unwrap();
+                transform.translation = Vec3::ZERO;
+            }
+        }
+    }
+}
+
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
     mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
@@ -135,10 +193,14 @@ fn setup_scene_once_loaded(
     }
 }
 
-fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
-    let mut transform = query.single_mut();
+fn track_character(
+    mut q_camera: Query<&mut Transform, With<Camera>>,
+    q_character: Query<&GlobalTransform, With<Character>>,
+) {
+    let mut camera_transform = q_camera.single_mut();
+    let q_character = q_character.single();
 
-    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
+    camera_transform.look_at(q_character.translation(), Vec3::ZERO);
 }
 
 /// Animation controls:
