@@ -20,12 +20,9 @@ fn main() {
         .add_collection_to_loading_state::<_, MyAssets>(GameState::AssetLoading)
         .init_resource::<Animations>()
         .insert_resource(AmbientLight { color: Color::WHITE, brightness: 1.0 })
-        // .add_systems(Startup, setup)
-        .add_systems(
-            OnEnter(GameState::Next),
-            (setup_with_assets, setup_cars_transforms.after(setup_with_assets)),
-        )
+        .add_systems(OnEnter(GameState::Next), setup_with_assets)
         .add_systems(Update, close_on_esc)
+        .add_systems(Update, setup_character_texture)
         .add_systems(
             Update,
             (setup_scene_once_loaded, keyboard_animation_control, move_player)
@@ -78,7 +75,6 @@ struct MyAssets {
 enum GameState {
     #[default]
     AssetLoading,
-    AssetPreparation,
     Next,
 }
 
@@ -92,8 +88,8 @@ fn setup_with_assets(
 ) {
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
-        assets.tpose_animation.clone(),
-        assets.run_animation.clone(),
+        assets.tpose_animation.clone_weak(),
+        assets.run_animation.clone_weak(),
     ]));
 
     // Light
@@ -113,7 +109,7 @@ fn setup_with_assets(
     commands
         .spawn(PlayerBundle {
             character: CharacterBundle {
-                scene: SceneBundle { scene: assets.character_scene.clone(), ..default() },
+                scene: SceneBundle { scene: assets.character_scene.clone_weak(), ..default() },
                 ..default()
             },
             ..default()
@@ -130,7 +126,7 @@ fn setup_with_assets(
     // Cars
     commands.spawn(CarBundle {
         scene: SceneBundle {
-            scene: assets.garbage_truck.clone(),
+            scene: assets.garbage_truck.clone_weak(),
             transform: Transform::from_xyz(10., 0., 10.)
                 .with_scale(Vec3::splat(4.))
                 .with_rotation(Quat::from_rotation_y(PI / 3.)),
@@ -140,7 +136,7 @@ fn setup_with_assets(
     });
     commands.spawn(CarBundle {
         scene: SceneBundle {
-            scene: assets.police.clone(),
+            scene: assets.police.clone_weak(),
             transform: Transform::from_xyz(15., 0., -8.)
                 .with_scale(Vec3::splat(3.))
                 .with_rotation(Quat::from_rotation_y(PI / 6.)),
@@ -150,8 +146,8 @@ fn setup_with_assets(
     });
     commands.spawn(CarBundle {
         scene: SceneBundle {
-            scene: assets.sedan.clone(),
-            transform: Transform::from_xyz(15., 0., 8.)
+            scene: assets.sedan.clone_weak(),
+            transform: Transform::from_xyz(20., 0., 3.)
                 .with_scale(Vec3::splat(3.))
                 .with_rotation(Quat::from_rotation_y(PI / 2.)),
             ..default()
@@ -174,24 +170,14 @@ fn setup_with_assets(
     });
 }
 
-fn setup_cars_transforms(
-    q_cars: Query<(Entity, &Children), With<Car>>,
-    q_children: Query<&Children>,
-    mut q_transforms: Query<&mut Transform>,
+fn setup_character_texture(
+    q_scenes: Query<&Handle<Scene>, With<Character>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (entity, children) in &q_cars {
-        let mut transform = q_transforms.get_mut(entity).unwrap();
-        transform.scale = Vec3::splat(2.5);
-        transform.translation = Vec3::new(10., 1.1, 10.);
-
-        for &child in children.iter() {
-            let nested_child = q_children.get(child).unwrap();
-            for &nested_child in nested_child.iter() {
-                let mut transform = q_transforms.get_mut(nested_child).unwrap();
-                transform.translation = Vec3::ZERO;
-            }
-        }
-    }
+    // for scene_handle in &q_scenes {
+    //     let material = materials.get_mut(scene_handle).unwrap();
+    //     material.base_color = Color::RED;
+    // }
 }
 
 #[derive(Default, Resource)]
