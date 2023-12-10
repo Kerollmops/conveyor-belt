@@ -6,75 +6,95 @@ use bevy::input::common_conditions::input_toggle_active;
 use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 use bevy::window::close_on_esc;
+use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 fn main() {
     App::new()
+        .add_state::<GameState>()
         .add_plugins(DefaultPlugins)
         .add_plugins(WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)))
+        .add_loading_state(
+            LoadingState::new(GameState::AssetLoading).continue_to_state(GameState::Next),
+        )
+        .add_collection_to_loading_state::<_, MyAssets>(GameState::AssetLoading)
+        .init_resource::<Animations>()
         .insert_resource(AmbientLight { color: Color::WHITE, brightness: 1.0 })
-        .add_systems(Startup, setup)
+        // .add_systems(Startup, setup)
+        .add_systems(
+            OnEnter(GameState::Next),
+            (setup_with_assets, setup_cars_transforms.after(setup_with_assets)),
+        )
+        .add_systems(Update, close_on_esc)
         .add_systems(
             Update,
-            (
-                close_on_esc,
-                reset_cars_transform,
-                setup_scene_once_loaded,
-                keyboard_animation_control,
-                track_character,
-            ),
+            (setup_scene_once_loaded, keyboard_animation_control, move_player)
+                .run_if(in_state(GameState::Next)),
         )
         .run();
 }
 
-#[derive(Resource)]
-struct Animations(Vec<Handle<AnimationClip>>);
+#[derive(AssetCollection, Resource)]
+struct MyAssets {
+    // Cars
+    #[asset(path = "cars/models/garbageTruck.glb#Scene0")]
+    garbage_truck: Handle<Scene>,
+    #[asset(path = "cars/models/police.glb#Scene0")]
+    police: Handle<Scene>,
+    #[asset(path = "cars/models/sedan.glb#Scene0")]
+    sedan: Handle<Scene>,
 
-#[derive(Component)]
-struct Character;
-
-#[derive(Bundle)]
-struct CharacterBundle {
-    marker: Character,
-    scene: SceneBundle,
+    // Characters
+    #[asset(path = "characters/animations/run.glb#Scene0")]
+    character_scene: Handle<Scene>,
+    #[asset(path = "characters/animations/run.glb#Animation0")]
+    tpose_animation: Handle<AnimationClip>,
+    #[asset(path = "characters/animations/run.glb#Animation1")]
+    run_animation: Handle<AnimationClip>,
+    // Characters Skins
+    #[asset(path = "characters/skins/animalBaseH.png")]
+    animal_base_h: Handle<Image>,
+    #[asset(path = "characters/skins/animalBaseI.png")]
+    animal_base_i: Handle<Image>,
+    #[asset(path = "characters/skins/cyborg.png")]
+    cyborg: Handle<Image>,
+    #[asset(path = "characters/skins/militaryFemaleA.png")]
+    military_female_a: Handle<Image>,
+    #[asset(path = "characters/skins/militaryFemaleB.png")]
+    military_female_b: Handle<Image>,
+    #[asset(path = "characters/skins/militaryMaleA.png")]
+    military_male_a: Handle<Image>,
+    #[asset(path = "characters/skins/militaryMaleB.png")]
+    military_male_b: Handle<Image>,
+    #[asset(path = "characters/skins/robot.png")]
+    robot: Handle<Image>,
+    #[asset(path = "characters/skins/robot2.png")]
+    robot2: Handle<Image>,
+    #[asset(path = "characters/skins/robot3.png")]
+    robot3: Handle<Image>,
 }
 
-#[derive(Component)]
-struct Car;
-
-#[derive(Bundle)]
-struct CarBundle {
-    marker: Car,
-    scene: SceneBundle,
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
+enum GameState {
+    #[default]
+    AssetLoading,
+    AssetPreparation,
+    Next,
 }
 
 /// Once the scene is loaded, start the animation
 /// set up a simple 3D scene
-fn setup(
+fn setup_with_assets(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    assets: Res<MyAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
-        asset_server.load("Animated Characters bundle/Animations/run.glb#Animation0"),
-        asset_server.load("Animated Characters bundle/Animations/run.glb#Animation1"),
+        assets.tpose_animation.clone(),
+        assets.run_animation.clone(),
     ]));
-
-    // // Camera
-    // commands.spawn(Camera3dBundle {
-    //     transform: Transform::from_xyz(100.0, 100.0, 150.0)
-    //         .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
-    //     ..default()
-    // });
-
-    // // Plane
-    // commands.spawn(PbrBundle {
-    //     mesh: meshes.add(shape::Plane::from_size(500000.0).into()),
-    //     material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-    //     ..default()
-    // });
 
     // Light
     commands.spawn(DirectionalLightBundle {
@@ -90,69 +110,60 @@ fn setup(
     });
 
     // Character
-    commands.spawn(CharacterBundle {
-        marker: Character,
-        scene: SceneBundle {
-            scene: asset_server.load("Animated Characters bundle/Animations/run.glb#Scene0"),
-            // transform: Transform::from_xyz(-4.0994653, -0.21640539, -0.54153347),
+    commands
+        .spawn(PlayerBundle {
+            character: CharacterBundle {
+                scene: SceneBundle { scene: assets.character_scene.clone(), ..default() },
+                ..default()
+            },
             ..default()
-        },
-    });
+        })
+        .with_children(|parent| {
+            // camera
+            parent.spawn(Camera3dBundle {
+                transform: Transform::from_xyz(0., 5.5, -9.)
+                    .looking_at(Vec3::new(0., 3., 10.), Vec3::ZERO),
+                ..default()
+            });
+        });
 
     // Cars
     commands.spawn(CarBundle {
-        marker: Car,
         scene: SceneBundle {
-            scene: asset_server.load("Mini Car Kit/Models/glTF format/carAmbulance.gltf#Scene0"),
-            // transform: Transform::from_xyz(-4.0994653, -0.21640539, -0.54153347),
+            scene: assets.garbage_truck.clone(),
+            transform: Transform::from_xyz(10., 0., 10.)
+                .with_scale(Vec3::splat(4.))
+                .with_rotation(Quat::from_rotation_y(PI / 3.)),
             ..default()
         },
+        ..default()
     });
     commands.spawn(CarBundle {
-        marker: Car,
         scene: SceneBundle {
-            scene: asset_server.load("Mini Car Kit/Models/glTF format/carDelivery.gltf#Scene0"),
-            // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
+            scene: assets.police.clone(),
+            transform: Transform::from_xyz(15., 0., -8.)
+                .with_scale(Vec3::splat(3.))
+                .with_rotation(Quat::from_rotation_y(PI / 6.)),
             ..default()
         },
+        ..default()
     });
     commands.spawn(CarBundle {
-        marker: Car,
         scene: SceneBundle {
-            scene: asset_server.load("Mini Car Kit/Models/glTF format/carFormula.gltf#Scene0"),
-            // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
+            scene: assets.sedan.clone(),
+            transform: Transform::from_xyz(15., 0., 8.)
+                .with_scale(Vec3::splat(3.))
+                .with_rotation(Quat::from_rotation_y(PI / 2.)),
             ..default()
         },
-    });
-    commands.spawn(CarBundle {
-        marker: Car,
-        scene: SceneBundle {
-            scene: asset_server.load("Mini Car Kit/Models/glTF format/carGarbage.gltf#Scene0"),
-            // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
-            ..default()
-        },
-    });
-    commands.spawn(CarBundle {
-        marker: Car,
-        scene: SceneBundle {
-            scene: asset_server.load("Mini Car Kit/Models/glTF format/carJeep.gltf#Scene0"),
-            // transform: Transform::from_xyz(-4.0994653, -0.21640539 + 1.2, -0.54153347),
-            ..default()
-        },
+        ..default()
     });
 
     // circular base
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Circle::new(4.0).into()),
+        mesh: meshes.add(shape::Circle::new(30.0).into()),
         material: materials.add(Color::WHITE.into()),
         transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
-    // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb_u8(124, 144, 255).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // light
@@ -161,19 +172,18 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-    // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
 }
 
-fn reset_cars_transform(
-    q_cars: Query<&Children, With<Car>>,
+fn setup_cars_transforms(
+    q_cars: Query<(Entity, &Children), With<Car>>,
     q_children: Query<&Children>,
     mut q_transforms: Query<&mut Transform>,
 ) {
-    for children in &q_cars {
+    for (entity, children) in &q_cars {
+        let mut transform = q_transforms.get_mut(entity).unwrap();
+        transform.scale = Vec3::splat(2.5);
+        transform.translation = Vec3::new(10., 1.1, 10.);
+
         for &child in children.iter() {
             let nested_child = q_children.get(child).unwrap();
             for &nested_child in nested_child.iter() {
@@ -182,6 +192,36 @@ fn reset_cars_transform(
             }
         }
     }
+}
+
+#[derive(Default, Resource)]
+struct Animations(Vec<Handle<AnimationClip>>);
+
+#[derive(Default, Component)]
+struct Character;
+
+#[derive(Default, Bundle)]
+struct CharacterBundle {
+    marker: Character,
+    scene: SceneBundle,
+}
+
+#[derive(Default, Component)]
+struct Player;
+
+#[derive(Default, Bundle)]
+struct PlayerBundle {
+    marker: Player,
+    character: CharacterBundle,
+}
+
+#[derive(Default, Component)]
+struct Car;
+
+#[derive(Default, Bundle)]
+struct CarBundle {
+    marker: Car,
+    scene: SceneBundle,
 }
 
 fn setup_scene_once_loaded(
@@ -193,14 +233,32 @@ fn setup_scene_once_loaded(
     }
 }
 
-fn track_character(
-    mut q_camera: Query<&mut Transform, With<Camera>>,
-    q_character: Query<&GlobalTransform, With<Character>>,
+fn move_player(
+    time: Res<Time>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut q_player: Query<&mut Transform, With<Player>>,
 ) {
-    let mut camera_transform = q_camera.single_mut();
-    let q_character = q_character.single();
+    let mut transform = q_player.single_mut();
 
-    camera_transform.look_at(q_character.translation(), Vec3::ZERO);
+    if keyboard_input.pressed(KeyCode::Up) {
+        let direction = transform.local_z();
+        transform.translation += direction * 5.0 * time.delta_seconds();
+        // transform.translation += Vec3::new(0., 0., 2. * time.delta_seconds());
+    }
+
+    if keyboard_input.pressed(KeyCode::Down) {
+        let direction = transform.local_z();
+        transform.translation += direction * -5.0 * time.delta_seconds();
+        // transform.translation += Vec3::new(0., 0., -2. * time.delta_seconds());
+    }
+
+    if keyboard_input.pressed(KeyCode::Left) {
+        transform.rotate_y(PI * time.delta_seconds());
+    }
+
+    if keyboard_input.pressed(KeyCode::Right) {
+        transform.rotate_y(-PI * time.delta_seconds());
+    }
 }
 
 /// Animation controls:
@@ -223,26 +281,6 @@ fn keyboard_animation_control(
             } else {
                 player.pause();
             }
-        }
-
-        if keyboard_input.just_pressed(KeyCode::Up) {
-            let speed = player.speed();
-            player.set_speed(speed * 1.2);
-        }
-
-        if keyboard_input.just_pressed(KeyCode::Down) {
-            let speed = player.speed();
-            player.set_speed(speed * 0.8);
-        }
-
-        if keyboard_input.just_pressed(KeyCode::Left) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed - 0.1);
-        }
-
-        if keyboard_input.just_pressed(KeyCode::Right) {
-            let elapsed = player.seek_time();
-            player.seek_to(elapsed + 0.1);
         }
 
         if keyboard_input.just_pressed(KeyCode::Return) {
