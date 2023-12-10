@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use ordered_float::OrderedFloat;
 
 fn main() {
     App::new()
@@ -25,7 +26,12 @@ fn main() {
         .add_systems(Update, setup_character_texture)
         .add_systems(
             Update,
-            (setup_scene_once_loaded, keyboard_animation_control, move_player)
+            (
+                setup_scene_once_loaded,
+                keyboard_animation_control,
+                move_controlled,
+                get_in_nearest_car,
+            )
                 .run_if(in_state(GameState::Next)),
         )
         .run();
@@ -34,7 +40,7 @@ fn main() {
 #[derive(AssetCollection, Resource)]
 struct MyAssets {
     // Cars
-    #[asset(path = "cars/models/garbageTruck.glb#Scene0")]
+    #[asset(path = "cars/models/betterGarbageTruck.glb#Scene0")]
     garbage_truck: Handle<Scene>,
     #[asset(path = "cars/models/police.glb#Scene0")]
     police: Handle<Scene>,
@@ -107,13 +113,13 @@ fn setup_with_assets(
 
     // Character
     commands
-        .spawn(PlayerBundle {
-            character: CharacterBundle {
+        .spawn((
+            Controlled,
+            CharacterBundle {
                 scene: SceneBundle { scene: assets.character_scene.clone_weak(), ..default() },
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             // camera
             parent.spawn(Camera3dBundle {
@@ -128,7 +134,6 @@ fn setup_with_assets(
         scene: SceneBundle {
             scene: assets.garbage_truck.clone_weak(),
             transform: Transform::from_xyz(10., 0., 10.)
-                .with_scale(Vec3::splat(4.))
                 .with_rotation(Quat::from_rotation_y(PI / 3.)),
             ..default()
         },
@@ -193,13 +198,7 @@ struct CharacterBundle {
 }
 
 #[derive(Default, Component)]
-struct Player;
-
-#[derive(Default, Bundle)]
-struct PlayerBundle {
-    marker: Player,
-    character: CharacterBundle,
-}
+struct Controlled;
 
 #[derive(Default, Component)]
 struct Car;
@@ -219,10 +218,10 @@ fn setup_scene_once_loaded(
     }
 }
 
-fn move_player(
+fn move_controlled(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut q_player: Query<&mut Transform, With<Player>>,
+    mut q_player: Query<&mut Transform, With<Controlled>>,
 ) {
     let mut transform = q_player.single_mut();
 
@@ -244,6 +243,28 @@ fn move_player(
 
     if keyboard_input.pressed(KeyCode::Right) {
         transform.rotate_y(-PI * time.delta_seconds());
+    }
+}
+
+fn get_in_nearest_car(
+    mut commands: Commands,
+    keyboard_input: Res<Input<KeyCode>>,
+    q_controlled: Query<(Entity, &Transform), With<Controlled>>,
+    q_camera: Query<Entity, With<Camera>>,
+    q_cars: Query<(Entity, &Transform), With<Car>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::E) {
+        let (controlled_entity, current_trans) = q_controlled.single();
+
+        if let Some((car_entity, _)) = q_cars.iter().min_by_key(|(_, car_trans)| {
+            OrderedFloat(car_trans.translation.distance_squared(current_trans.translation))
+        }) {
+            let cam_entity = q_camera.single();
+            commands.entity(cam_entity).remove_parent();
+            commands.entity(car_entity).add_child(cam_entity);
+            commands.entity(controlled_entity).remove::<Controlled>();
+            commands.entity(car_entity).insert(Controlled);
+        }
     }
 }
 
