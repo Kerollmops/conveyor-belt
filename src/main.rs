@@ -40,7 +40,7 @@ fn main() {
 #[derive(AssetCollection, Resource)]
 struct MyAssets {
     // Cars
-    #[asset(path = "cars/models/betterGarbageTruck.glb#Scene0")]
+    #[asset(path = "cars/models/garbageTruck.glb#Scene0")]
     garbage_truck: Handle<Scene>,
     #[asset(path = "cars/models/police.glb#Scene0")]
     police: Handle<Scene>,
@@ -143,7 +143,6 @@ fn setup_with_assets(
         scene: SceneBundle {
             scene: assets.police.clone_weak(),
             transform: Transform::from_xyz(15., 0., -8.)
-                .with_scale(Vec3::splat(3.))
                 .with_rotation(Quat::from_rotation_y(PI / 6.)),
             ..default()
         },
@@ -153,7 +152,6 @@ fn setup_with_assets(
         scene: SceneBundle {
             scene: assets.sedan.clone_weak(),
             transform: Transform::from_xyz(20., 0., 3.)
-                .with_scale(Vec3::splat(3.))
                 .with_rotation(Quat::from_rotation_y(PI / 2.)),
             ..default()
         },
