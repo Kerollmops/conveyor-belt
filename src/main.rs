@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use std::f32::consts::PI;
 use std::time::Duration;
 
@@ -31,6 +33,7 @@ fn main() {
                 keyboard_animation_control,
                 move_controlled,
                 get_in_nearest_car,
+                get_out_of_the_car,
             )
                 .run_if(in_state(GameState::Next)),
         )
@@ -247,21 +250,52 @@ fn move_controlled(
 fn get_in_nearest_car(
     mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
-    q_controlled: Query<(Entity, &Transform), With<Controlled>>,
+    q_controlled: Query<(Entity, &Transform), (With<Controlled>, With<Character>)>,
     q_camera: Query<Entity, With<Camera>>,
     q_cars: Query<(Entity, &Transform), With<Car>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::E) {
-        let (controlled_entity, current_trans) = q_controlled.single();
+        if let Ok((controlled_entity, current_trans)) = q_controlled.get_single() {
+            if let Some((car_entity, _)) = q_cars.iter().min_by_key(|(_, car_trans)| {
+                OrderedFloat(car_trans.translation.distance_squared(current_trans.translation))
+            }) {
+                let cam_entity = q_camera.single();
+                commands.entity(cam_entity).remove_parent();
+                commands.entity(car_entity).add_child(cam_entity);
+                commands.entity(controlled_entity).despawn_recursive();
+                commands.entity(car_entity).insert(Controlled);
+            }
+        }
+    }
+}
 
-        if let Some((car_entity, _)) = q_cars.iter().min_by_key(|(_, car_trans)| {
-            OrderedFloat(car_trans.translation.distance_squared(current_trans.translation))
-        }) {
+fn get_out_of_the_car(
+    mut commands: Commands,
+    assets: Res<MyAssets>,
+    keyboard_input: Res<Input<KeyCode>>,
+    q_controlled: Query<(Entity, &Transform), (With<Controlled>, With<Car>)>,
+    q_camera: Query<Entity, With<Camera>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::E) {
+        if let Ok((controlled_entity, &controlled_trans)) = q_controlled.get_single() {
             let cam_entity = q_camera.single();
             commands.entity(cam_entity).remove_parent();
-            commands.entity(car_entity).add_child(cam_entity);
             commands.entity(controlled_entity).remove::<Controlled>();
-            commands.entity(car_entity).insert(Controlled);
+            commands
+                .spawn(CharacterBundle {
+                    scene: SceneBundle {
+                        scene: assets.character_scene.clone_weak(),
+                        transform: Transform {
+                            translation: controlled_trans.translation
+                                + (controlled_trans.right() * 4.0),
+                            ..controlled_trans
+                        },
+                        ..default()
+                    },
+                    ..default()
+                })
+                .insert(Controlled)
+                .add_child(cam_entity);
         }
     }
 }
