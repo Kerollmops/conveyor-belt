@@ -38,7 +38,7 @@ fn main() {
 
 #[derive(AssetCollection, Resource)]
 struct MyAssets {
-    #[asset(path = "cars/models/porsche_911_930_turbo_small.glb#Scene0")]
+    #[asset(path = "cars/models/porsche_911_930_turbo.glb#Scene0")]
     porsche: Handle<Scene>,
 }
 
@@ -80,27 +80,24 @@ fn setup_with_assets(
     });
 
     // Cars
-    commands
-        .spawn((
-            Controlled,
-            CarBundle {
-                scene: SceneBundle {
-                    scene: assets.porsche.clone_weak(),
-                    transform: Transform::from_xyz(10., 0., 10.)
-                        .with_rotation(Quat::from_rotation_y(PI / 3.)),
-                    ..default()
-                },
+    commands.spawn((
+        Controlled,
+        CarBundle {
+            scene: SceneBundle {
+                scene: assets.porsche.clone_weak(),
+                transform: Transform::from_xyz(10., 0., 10.)
+                    .with_rotation(Quat::from_rotation_y(PI / 3.)),
                 ..default()
             },
-        ))
-        .with_children(|parent| {
-            // camera
-            parent.spawn(Camera3dBundle {
-                transform: Transform::from_xyz(0., 5.5, -9.)
-                    .looking_at(Vec3::new(0., 3., 10.), Vec3::ZERO),
-                ..default()
-            });
-        });
+            ..default()
+        },
+    ));
+
+    // camera
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(0., 5.5, -9.).looking_at(Vec3::new(0., 3., 10.), Vec3::ZERO),
+        ..default()
+    });
 
     // circular base
     commands.spawn(PbrBundle {
