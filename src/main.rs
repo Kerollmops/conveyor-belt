@@ -1,18 +1,24 @@
 #![allow(clippy::type_complexity)]
 
 use std::f32::consts::PI;
+use std::iter;
 
 use bevy::input::common_conditions::input_toggle_active;
-use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
+use car_camera::{camera_follow, CameraFollow};
+use car_controls::{car_controls, CarController};
+use car_suspension::{update_car_suspension, CarPhysics, WheelInfo};
 
-// mod ray_cast_vehicle_controller;
+mod car_camera;
+mod car_controls;
+mod car_suspension;
 
 fn main() {
     App::new()
@@ -29,13 +35,16 @@ fn main() {
                 .load_collection::<MyAssets>(),
         )
         .insert_resource(AmbientLight { color: Color::WHITE, brightness: 1.0 })
+        .register_type::<CarPhysics>()
+        .register_type::<CarController>()
         .add_systems(OnEnter(GameState::Next), setup_with_assets)
         .add_systems(Update, close_on_esc)
         .add_systems(
             Update,
             (
-                move_controlled,
-                move_wheels,
+                update_car_suspension,
+                looking_at_car,
+                car_controls.after(update_car_suspension),
                 // get_in_nearest_car,
                 // get_out_of_the_car,
             )
@@ -48,6 +57,8 @@ fn main() {
 struct MyAssets {
     #[asset(path = "cars/models/porsche_911_930_turbo.glb#Scene0")]
     porsche: Handle<Scene>,
+    // #[asset(path = "maps/playground.glb#Scene0")]
+    // playground: Handle<Scene>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
@@ -70,13 +81,21 @@ fn setup_with_assets(
     mut commands: Commands,
     assets: Res<MyAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 3.5, -9.).looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
-        ..default()
-    });
+    commands
+        .spawn(Camera3dBundle {
+            transform: Transform::from_xyz(0., 10.0, -10.)
+                .looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
+            ..default()
+        })
+        .insert(CameraFollow {
+            camera_translation_speed: 1000.,
+            fake_transform: Transform::from_xyz(0., 0., 0.),
+            distance_behind: 10.,
+        });
 
     commands.spawn(InfiniteGridBundle::default());
 
@@ -87,25 +106,66 @@ fn setup_with_assets(
         ..default()
     });
 
+    let car_size = Vec3::new(1.0, 0.5, 2.2);
+    let debug_material = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(uv_debug_texture())),
+        ..default()
+    });
+    let cylinder = meshes.add(shape::Cylinder { radius: 1.0, height: 1.0, ..default() }.into());
+    let wheel_infos = iter::repeat_with(|| {
+        let entity = commands
+            .spawn(PbrBundle {
+                mesh: cylinder.clone_weak(),
+                material: debug_material.clone(),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                ..default()
+            })
+            .id();
+        WheelInfo { entity, hit: false }
+    })
+    .take(4)
+    .collect();
+
     commands
         .spawn((
-            Controlled,
             Car,
             RigidBody::Dynamic,
-            Collider::cuboid(1.5, 0.5, 2.5),
-            Restitution::coefficient(0.7),
-            TransformBundle::from(
-                Transform::from_xyz(0., 2., 0.)
-                    .with_rotation(Quat::from_rotation_y(5.0 * PI / 6.0)),
-            ),
+            TransformBundle::from(Transform::from_xyz(0.0, 1.0, 0.0)),
+            Collider::cuboid(car_size.x, car_size.y, car_size.z),
         ))
+        .insert(CarPhysics {
+            wheels_stationary_animation_speed: 10.,
+            wheels_animation_speed: 3.,
+            wheel_infos,
+            plane: Vec3::ZERO,
+            car_size,
+            car_transform_camera: Transform::from_xyz(0., 0., 0.),
+        })
+        .insert(CarController {
+            car_linear_damping: 0.5,
+            rotate_to_rotation: Quat::IDENTITY,
+            slerp_speed: 5.,
+            rotated_last_frame: false,
+            center_of_mass_altered: false,
+            speed: 50000.,
+            rotate_speed: 5200.,
+        })
+        .insert(Velocity { ..default() })
+        .insert(ExternalImpulse {
+            impulse: Vec3::new(0., 0., 0.),
+            torque_impulse: Vec3::new(0., 0., 0.),
+        })
+        .insert(ExternalForce::default())
+        .insert(GravityScale(1.))
+        .insert(Damping { linear_damping: 0., angular_damping: 3. })
+        .insert(Ccd::enabled())
         .with_children(|parent| {
             // Spawn Car and Identify car wheels and elements
             parent.spawn(HookedSceneBundle {
                 scene: SceneBundle {
                     scene: assets.porsche.clone_weak(),
-                    transform: Transform::from_xyz(0.0, -0.7, 0.0),
-                    ..Default::default()
+                    transform: Transform::from_xyz(0.0, -0.9, -0.3),
+                    ..default()
                 },
                 hook: SceneHook::new(|entity, commands| {
                     match entity.get::<Name>().map(|t| t.as_str()) {
@@ -119,82 +179,55 @@ fn setup_with_assets(
             });
         });
 
-    // circular base
-    commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(shape::Circle::new(30.0).into()),
+    // square base
+    commands.spawn((
+        Collider::cuboid(300.0, 0.1, 300.0),
+        PbrBundle {
+            mesh: meshes.add(shape::Quad { size: Vec2::splat(300.0), flip: false }.into()),
             material: materials.add(Color::WHITE.into()),
-            transform: Transform::from_rotation(Quat::from_rotation_x(
-                -std::f32::consts::FRAC_PI_2,
-            )),
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
-        })
-        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
-        .insert(Collider::cuboid(20.0, 0.1, 20.0));
+        },
+    ));
 }
-
-#[derive(Default, Component)]
-struct Controlled;
 
 #[derive(Default, Component)]
 struct Car;
 
-fn move_controlled(
-    time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut q_controlled: Query<&mut Transform, With<Controlled>>,
+fn looking_at_car(
+    mut camera_q: Query<&mut Transform, With<Camera>>,
+    car_q: Query<&mut GlobalTransform, With<Car>>,
 ) {
-    let mut transform = q_controlled.single_mut();
-
-    if keyboard_input.pressed(KeyCode::Up) {
-        let direction = transform.local_z();
-        transform.translation += direction * 5.0 * time.delta_seconds();
-        // transform.translation += Vec3::new(0., 0., 2. * time.delta_seconds());
-    }
-
-    if keyboard_input.pressed(KeyCode::Down) {
-        let direction = transform.local_z();
-        transform.translation += direction * -5.0 * time.delta_seconds();
-        // transform.translation += Vec3::new(0., 0., -2. * time.delta_seconds());
-    }
-
-    if keyboard_input.pressed(KeyCode::Left) {
-        transform.rotate_y(PI * time.delta_seconds());
-    }
-
-    if keyboard_input.pressed(KeyCode::Right) {
-        transform.rotate_y(-PI * time.delta_seconds());
+    let car_transform = car_q.get_single().unwrap();
+    for mut transform in camera_q.iter_mut() {
+        transform.look_at(car_transform.translation(), Vec3::ZERO);
     }
 }
 
-fn move_wheels(
-    time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut q_wheels: Query<(&mut Transform, &CarWheel)>,
-) {
-    // Clamp the wheel rotation between π/4 and 7π/4
-    fn rotation_clamp(f: f32) -> f32 {
-        let f = if f < 0.0 { f + 2.0 * PI } else { f };
-        if f > PI / 4.0 && f < PI {
-            PI / 4.0
-        } else if f > PI && f < (7.0 * PI / 4.0) {
-            7.0 * PI / 4.0
-        } else {
-            f
-        }
+/// Creates a colorful test pattern
+fn uv_debug_texture() -> Image {
+    const TEXTURE_SIZE: usize = 8;
+
+    let mut palette: [u8; 32] = [
+        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
+        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
+    ];
+
+    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
+    for y in 0..TEXTURE_SIZE {
+        let offset = TEXTURE_SIZE * y * 4;
+        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
+        palette.rotate_right(4);
     }
 
-    for (mut transform, wheel) in q_wheels.iter_mut() {
-        if matches!(wheel, CarWheel::FrontLeft | CarWheel::FrontRight) {
-            let rotation_y = transform.rotation.to_scaled_axis().y;
-            if keyboard_input.pressed(KeyCode::Left) {
-                let rotation_y = rotation_y + PI * time.delta_seconds();
-                transform.rotation = Quat::from_rotation_y(rotation_clamp(rotation_y));
-            }
-            if keyboard_input.pressed(KeyCode::Right) {
-                let rotation_y = rotation_y - PI * time.delta_seconds();
-                transform.rotation = Quat::from_rotation_y(rotation_clamp(rotation_y));
-            }
-        }
-    }
+    Image::new_fill(
+        Extent3d {
+            width: TEXTURE_SIZE as u32,
+            height: TEXTURE_SIZE as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &texture_data,
+        TextureFormat::Rgba8UnormSrgb,
+    )
 }
