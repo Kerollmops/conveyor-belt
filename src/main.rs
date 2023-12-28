@@ -9,6 +9,7 @@ use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
+use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use ordered_float::OrderedFloat;
 
@@ -16,11 +17,13 @@ fn main() {
     App::new()
         .add_state::<GameState>()
         .add_plugins(DefaultPlugins)
+        .add_plugins(InfiniteGridPlugin)
         .add_plugins(WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)))
         .add_loading_state(
-            LoadingState::new(GameState::AssetLoading).continue_to_state(GameState::Next),
+            LoadingState::new(GameState::AssetLoading)
+                .continue_to_state(GameState::Next)
+                .load_collection::<MyAssets>(),
         )
-        .add_collection_to_loading_state::<_, MyAssets>(GameState::AssetLoading)
         .init_resource::<Animations>()
         .insert_resource(AmbientLight { color: Color::WHITE, brightness: 1.0 })
         .add_systems(OnEnter(GameState::Next), setup_with_assets)
@@ -49,6 +52,8 @@ struct MyAssets {
     police: Handle<Scene>,
     #[asset(path = "cars/models/sedan.glb#Scene0")]
     sedan: Handle<Scene>,
+    #[asset(path = "cars/models/porsche_911_930_turbo_small.glb#Scene0")]
+    porsche: Handle<Scene>,
 
     // Characters
     #[asset(path = "characters/animations/run.glb#Scene0")]
@@ -95,6 +100,8 @@ fn setup_with_assets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    commands.spawn(InfiniteGridBundle::default());
+
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
         assets.tpose_animation.clone_weak(),
@@ -135,7 +142,7 @@ fn setup_with_assets(
     // Cars
     commands.spawn(CarBundle {
         scene: SceneBundle {
-            scene: assets.garbage_truck.clone_weak(),
+            scene: assets.porsche.clone_weak(),
             transform: Transform::from_xyz(10., 0., 10.)
                 .with_rotation(Quat::from_rotation_y(PI / 3.)),
             ..default()
