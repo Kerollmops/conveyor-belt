@@ -406,6 +406,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy-scene-hook"
+version = "9.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83e433958378686e72e82184650a54a64055f7e498e446edc32b5a157f926d7d"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_a11y"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1473,6 +1482,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
+ "bevy-scene-hook",
  "bevy_asset_loader",
  "bevy_infinite_grid",
  "ordered-float",

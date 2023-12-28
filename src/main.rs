@@ -9,12 +9,14 @@ use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
 
 fn main() {
     App::new()
         .add_state::<GameState>()
         .add_plugins(DefaultPlugins)
         .add_plugins(InfiniteGridPlugin)
+        .add_plugins(HookPlugin)
         .add_plugins(WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)))
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)
@@ -28,6 +30,7 @@ fn main() {
             Update,
             (
                 move_controlled,
+                move_wheels,
                 // get_in_nearest_car,
                 // get_out_of_the_car,
             )
@@ -49,7 +52,14 @@ enum GameState {
     Next,
 }
 
-/// Once the scene is loaded, start the animation
+#[derive(Component)]
+enum CarWheel {
+    FrontLeft,
+    FrontRight,
+    BackLeft,
+    BackRight,
+}
+
 /// set up a simple 3D scene
 fn setup_with_assets(
     mut commands: Commands,
@@ -79,17 +89,26 @@ fn setup_with_assets(
         ..default()
     });
 
-    // Cars
+    // Spawn Car and Identify car wheels and elements
     commands.spawn((
         Controlled,
-        CarBundle {
+        Car,
+        HookedSceneBundle {
             scene: SceneBundle {
                 scene: assets.porsche.clone_weak(),
                 transform: Transform::from_xyz(10., 0., 10.)
                     .with_rotation(Quat::from_rotation_y(PI / 3.)),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            hook: SceneHook::new(|entity, commands| {
+                match entity.get::<Name>().map(|t| t.as_str()) {
+                    Some("Front-Left-Wheel") => commands.insert(CarWheel::FrontLeft),
+                    Some("Front-Right-Wheel") => commands.insert(CarWheel::FrontRight),
+                    Some("Back-Left-Wheel") => commands.insert(CarWheel::BackLeft),
+                    Some("Back-Right-Wheel") => commands.insert(CarWheel::BackRight),
+                    _ => commands,
+                };
+            }),
         },
     ));
 
@@ -114,18 +133,12 @@ struct Controlled;
 #[derive(Default, Component)]
 struct Car;
 
-#[derive(Default, Bundle)]
-struct CarBundle {
-    marker: Car,
-    scene: SceneBundle,
-}
-
 fn move_controlled(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut q_player: Query<&mut Transform, With<Controlled>>,
+    mut q_controlled: Query<&mut Transform, With<Controlled>>,
 ) {
-    let mut transform = q_player.single_mut();
+    let mut transform = q_controlled.single_mut();
 
     if keyboard_input.pressed(KeyCode::Up) {
         let direction = transform.local_z();
@@ -148,55 +161,34 @@ fn move_controlled(
     }
 }
 
-// fn get_in_nearest_car(
-//     mut commands: Commands,
-//     keyboard_input: Res<Input<KeyCode>>,
-//     q_controlled: Query<(Entity, &Transform), (With<Controlled>, With<Character>)>,
-//     q_camera: Query<Entity, With<Camera>>,
-//     q_cars: Query<(Entity, &Transform), With<Car>>,
-// ) {
-//     if keyboard_input.just_pressed(KeyCode::E) {
-//         if let Ok((controlled_entity, current_trans)) = q_controlled.get_single() {
-//             if let Some((car_entity, _)) = q_cars.iter().min_by_key(|(_, car_trans)| {
-//                 OrderedFloat(car_trans.translation.distance_squared(current_trans.translation))
-//             }) {
-//                 let cam_entity = q_camera.single();
-//                 commands.entity(cam_entity).remove_parent();
-//                 commands.entity(car_entity).add_child(cam_entity);
-//                 commands.entity(controlled_entity).despawn_recursive();
-//                 commands.entity(car_entity).insert(Controlled);
-//             }
-//         }
-//     }
-// }
+fn move_wheels(
+    time: Res<Time>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut q_wheels: Query<(&mut Transform, &CarWheel)>,
+) {
+    // Clamp the wheel rotation between π/4 and 7π/4
+    fn rotation_clamp(f: f32) -> f32 {
+        let f = if f < 0.0 { f + 2.0 * PI } else { f };
+        if f > PI / 4.0 && f < PI {
+            PI / 4.0
+        } else if f > PI && f < (7.0 * PI / 4.0) {
+            7.0 * PI / 4.0
+        } else {
+            f
+        }
+    }
 
-// fn get_out_of_the_car(
-//     mut commands: Commands,
-//     assets: Res<MyAssets>,
-//     keyboard_input: Res<Input<KeyCode>>,
-//     q_controlled: Query<(Entity, &Transform), (With<Controlled>, With<Car>)>,
-//     q_camera: Query<Entity, With<Camera>>,
-// ) {
-//     if keyboard_input.just_pressed(KeyCode::E) {
-//         if let Ok((controlled_entity, &controlled_trans)) = q_controlled.get_single() {
-//             let cam_entity = q_camera.single();
-//             commands.entity(cam_entity).remove_parent();
-//             commands.entity(controlled_entity).remove::<Controlled>();
-//             commands
-//                 .spawn(CharacterBundle {
-//                     scene: SceneBundle {
-//                         scene: assets.character_scene.clone_weak(),
-//                         transform: Transform {
-//                             translation: controlled_trans.translation
-//                                 + (controlled_trans.right() * 4.0),
-//                             ..controlled_trans
-//                         },
-//                         ..default()
-//                     },
-//                     ..default()
-//                 })
-//                 .insert(Controlled)
-//                 .add_child(cam_entity);
-//         }
-//     }
-// }
+    for (mut transform, wheel) in q_wheels.iter_mut() {
+        if matches!(wheel, CarWheel::FrontLeft | CarWheel::FrontRight) {
+            let rotation_y = transform.rotation.to_scaled_axis().y;
+            if keyboard_input.pressed(KeyCode::Left) {
+                let rotation_y = rotation_y + PI * time.delta_seconds();
+                transform.rotation = Quat::from_rotation_y(rotation_clamp(rotation_y));
+            }
+            if keyboard_input.pressed(KeyCode::Right) {
+                let rotation_y = rotation_y - PI * time.delta_seconds();
+                transform.rotation = Quat::from_rotation_y(rotation_clamp(rotation_y));
+            }
+        }
+    }
+}
