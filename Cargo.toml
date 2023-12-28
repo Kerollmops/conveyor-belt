@@ -16,3 +16,4 @@ bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporat
 bevy-inspector-egui = "0.22.0"
 bevy-scene-hook = "9.0.0"
 ordered-float = "4.2.0"
+bevy_rapier3d = "0.23.0"

@@ -9,7 +9,10 @@ use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_rapier3d::prelude::*;
 use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
+
+// mod ray_cast_vehicle_controller;
 
 fn main() {
     App::new()
@@ -17,6 +20,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(InfiniteGridPlugin)
         .add_plugins(HookPlugin)
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+        .add_plugins(RapierDebugRenderPlugin::default())
         .add_plugins(WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)))
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)
@@ -67,20 +72,13 @@ fn setup_with_assets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn(InfiniteGridBundle::default());
-
-    // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight { shadows_enabled: true, ..default() },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
-            first_cascade_far_bound: 200.0,
-            maximum_distance: 400.0,
-            ..default()
-        }
-        .into(),
+    // camera
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(0., 3.5, -9.).looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
         ..default()
     });
+
+    commands.spawn(InfiniteGridBundle::default());
 
     // light
     commands.spawn(PointLightBundle {
@@ -89,42 +87,50 @@ fn setup_with_assets(
         ..default()
     });
 
-    // Spawn Car and Identify car wheels and elements
-    commands.spawn((
-        Controlled,
-        Car,
-        HookedSceneBundle {
-            scene: SceneBundle {
-                scene: assets.porsche.clone_weak(),
-                transform: Transform::from_xyz(10., 0., 10.)
-                    .with_rotation(Quat::from_rotation_y(PI / 3.)),
-                ..Default::default()
-            },
-            hook: SceneHook::new(|entity, commands| {
-                match entity.get::<Name>().map(|t| t.as_str()) {
-                    Some("Front-Left-Wheel") => commands.insert(CarWheel::FrontLeft),
-                    Some("Front-Right-Wheel") => commands.insert(CarWheel::FrontRight),
-                    Some("Back-Left-Wheel") => commands.insert(CarWheel::BackLeft),
-                    Some("Back-Right-Wheel") => commands.insert(CarWheel::BackRight),
-                    _ => commands,
-                };
-            }),
-        },
-    ));
-
-    // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 5.5, -9.).looking_at(Vec3::new(0., 3., 10.), Vec3::ZERO),
-        ..default()
-    });
+    commands
+        .spawn((
+            Controlled,
+            Car,
+            RigidBody::Dynamic,
+            Collider::cuboid(1.5, 0.5, 2.5),
+            Restitution::coefficient(0.7),
+            TransformBundle::from(
+                Transform::from_xyz(0., 2., 0.)
+                    .with_rotation(Quat::from_rotation_y(5.0 * PI / 6.0)),
+            ),
+        ))
+        .with_children(|parent| {
+            // Spawn Car and Identify car wheels and elements
+            parent.spawn(HookedSceneBundle {
+                scene: SceneBundle {
+                    scene: assets.porsche.clone_weak(),
+                    transform: Transform::from_xyz(0.0, -0.7, 0.0),
+                    ..Default::default()
+                },
+                hook: SceneHook::new(|entity, commands| {
+                    match entity.get::<Name>().map(|t| t.as_str()) {
+                        Some("Front-Left-Wheel") => commands.insert(CarWheel::FrontLeft),
+                        Some("Front-Right-Wheel") => commands.insert(CarWheel::FrontRight),
+                        Some("Back-Left-Wheel") => commands.insert(CarWheel::BackLeft),
+                        Some("Back-Right-Wheel") => commands.insert(CarWheel::BackRight),
+                        _ => commands,
+                    };
+                }),
+            });
+        });
 
     // circular base
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Circle::new(30.0).into()),
-        material: materials.add(Color::WHITE.into()),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
+    commands
+        .spawn(PbrBundle {
+            mesh: meshes.add(shape::Circle::new(30.0).into()),
+            material: materials.add(Color::WHITE.into()),
+            transform: Transform::from_rotation(Quat::from_rotation_x(
+                -std::f32::consts::FRAC_PI_2,
+            )),
+            ..default()
+        })
+        .insert(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
+        .insert(Collider::cuboid(20.0, 0.1, 20.0));
 }
 
 #[derive(Default, Component)]
