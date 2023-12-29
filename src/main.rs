@@ -1,7 +1,5 @@
 #![allow(clippy::type_complexity)]
 
-use std::iter;
-
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
@@ -14,10 +12,12 @@ use bevy_scene_hook::HookPlugin;
 use bevy_vector_shapes::ShapePlugin;
 use car_camera::CameraFollow;
 use car_controls::{car_controls, CarController};
-use car_suspension::{update_car_suspension, CarPhysics, WheelInfo};
+use car_steering::update_car_steering;
+use car_suspension::{update_car_suspension, CarPhysics};
 
 mod car_camera;
 mod car_controls;
+mod car_steering;
 mod car_suspension;
 
 fn main() {
@@ -42,10 +42,18 @@ fn main() {
         .add_systems(Update, close_on_esc)
         .add_systems(
             Update,
-            (update_car_suspension, looking_at_car, car_controls.after(update_car_suspension))
+            (update_car_suspension, update_car_steering, car_controls, looking_at_car)
                 .run_if(in_state(GameState::Next)),
         )
+        .add_systems(PreUpdate, reset_car_external_forces)
         .run();
+}
+
+fn reset_car_external_forces(mut car_query: Query<&mut ExternalForce, With<CarPhysics>>) {
+    if let Ok(mut car_force) = car_query.get_single_mut() {
+        car_force.force = Vec3::ZERO;
+        car_force.torque = Vec3::ZERO;
+    }
 }
 
 #[derive(AssetCollection, Resource)]
@@ -106,20 +114,6 @@ fn setup_with_assets(
         base_color_texture: Some(images.add(uv_debug_texture())),
         ..default()
     });
-    let cylinder = meshes.add(shape::Cylinder { radius: 1.0, height: 1.0, ..default() }.into());
-    let wheel_infos = iter::repeat_with(|| {
-        let entity = commands
-            .spawn(PbrBundle {
-                mesh: cylinder.clone_weak(),
-                material: debug_material.clone(),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                ..default()
-            })
-            .id();
-        WheelInfo { entity, hit: false }
-    })
-    .take(4)
-    .collect();
 
     commands
         .spawn((
@@ -129,21 +123,19 @@ fn setup_with_assets(
             Collider::cuboid(car_size.x, car_size.y, car_size.z),
         ))
         .insert(CarPhysics {
-            wheel_infos,
             car_size,
             car_transform_camera: Transform::from_xyz(0., 0., 0.),
             max_suspension: 0.6,
             suspension_strength: 250.,
             suspension_damping: 120.,
+            tire_grip_factor: 0.8,
+            tire_mass: 1.0,
         })
         .insert(CarController {
-            car_linear_damping: 0.5,
-            rotate_to_rotation: Quat::IDENTITY,
-            slerp_speed: 5.,
-            rotated_last_frame: false,
-            center_of_mass_altered: false,
-            speed: 5000.,
-            rotate_speed: 5200.,
+            rotate_speed: 5200.0,
+            max_speed: 5000.0,
+            tire_grip_factor: 1.,
+            tire_mass: 30.0,
         })
         .insert(Velocity { ..default() })
         .insert(ExternalImpulse::default())

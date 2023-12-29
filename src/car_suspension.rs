@@ -5,50 +5,36 @@ use bevy_rapier3d::prelude::*;
 use bevy_vector_shapes::painter::{ShapeConfig, ShapePainter};
 use bevy_vector_shapes::shapes::LinePainter;
 
-#[derive(Clone, Reflect)]
-pub struct WheelInfo {
-    pub hit: bool,
-    pub entity: Entity,
-}
-
 #[derive(Component, Reflect, InspectorOptions)]
 #[reflect(InspectorOptions)]
 pub struct CarPhysics {
     pub car_size: Vec3,
-    pub wheel_infos: Vec<WheelInfo>,
     pub car_transform_camera: Transform,
     pub max_suspension: f32,
     pub suspension_strength: f32,
     pub suspension_damping: f32,
+    #[inspector(min = 0.0, max = 1.0)]
+    pub tire_grip_factor: f32,
+    pub tire_mass: f32,
 }
 
 pub fn update_car_suspension(
-    time: Res<Time>,
     mut painter: ShapePainter,
     rapier_context: Res<RapierContext>,
     mut car_query: Query<(
         &RapierRigidBodyHandle,
         &mut CarPhysics,
         &mut ExternalForce,
-        &mut Velocity,
         &mut Transform,
     )>,
-    mut transform_query: Query<&mut Transform, Without<CarPhysics>>,
 ) {
-    let Ok((handle, mut car_physics, mut car_force, velocity, car_transform)) =
-        car_query.get_single_mut()
+    let Ok((handle, mut car_physics, mut car_force, car_transform)) = car_query.get_single_mut()
     else {
         return;
     };
 
-    let CarPhysics {
-        car_size,
-        wheel_infos,
-        max_suspension,
-        suspension_strength,
-        suspension_damping,
-        ..
-    } = car_physics.as_mut();
+    let CarPhysics { car_size, max_suspension, suspension_strength, suspension_damping, .. } =
+        *car_physics;
 
     let front_right = car_transform.translation
         + (car_transform.down() * car_size.y + car_transform.forward() * car_size.z)
@@ -68,22 +54,16 @@ pub fn update_car_suspension(
 
     let wheels = [front_right, front_left, back_right, back_left];
 
-    car_force.force = Vec3::ZERO;
-    car_force.torque = Vec3::ZERO;
-
-    for (i, (wheel, infos)) in wheels.into_iter().zip(wheel_infos).enumerate() {
-        let Ok(mut wheel_transform) = transform_query.get_mut(infos.entity) else {
-            continue;
-        };
-
+    for wheel in wheels {
         let hit = rapier_context.cast_ray_and_get_normal(
             wheel,
             car_transform.down(),
-            *max_suspension,
+            max_suspension,
             true,
             QueryFilter::only_fixed(),
         );
 
+        // suspension spring force
         match hit {
             Some((_entity, ray_intersection)) => {
                 painter.set_config(ShapeConfig { color: Color::GREEN, ..painter.config().clone() });
@@ -99,9 +79,7 @@ pub fn update_car_suspension(
                 let tire_world_vel = rigid_body.velocity_at_point(&wheel.into()).into();
 
                 // Calculate offset from the raycast.
-                let offset = *max_suspension - ray_intersection.toi;
-
-                eprintln!("offset {offset}");
+                let offset = max_suspension - ray_intersection.toi;
 
                 // Calculate velocity along the spring direction
                 // note that spring_dir is a unit vector, so this returns
@@ -109,7 +87,7 @@ pub fn update_car_suspension(
                 let vel = suspension_dir.dot(tire_world_vel);
 
                 // Calculate he magnitude of the dampened spring force!
-                let force = (offset * *suspension_strength) - (vel * *suspension_damping);
+                let force = (offset * suspension_strength) - (vel * suspension_damping);
 
                 // Apply force at the location of this tire, in the direction
                 // of the suspension.
@@ -124,7 +102,7 @@ pub fn update_car_suspension(
             }
             None => {
                 painter.reset();
-                painter.line(wheel, wheel + car_transform.down() * *max_suspension);
+                painter.line(wheel, wheel + car_transform.down() * max_suspension);
             }
         }
     }
