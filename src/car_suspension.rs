@@ -9,7 +9,6 @@ use bevy_vector_shapes::shapes::LinePainter;
 #[reflect(InspectorOptions)]
 pub struct CarPhysics {
     pub chassis_size: Vec3,
-    pub car_transform_camera: Transform,
     pub max_suspension: f32,
     pub suspension_strength: f32,
     pub suspension_damping: f32,

@@ -11,6 +11,7 @@ use bevy_rapier3d::prelude::*;
 use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
 use bevy_vector_shapes::ShapePlugin;
 use car_acceleration::car_acceleration;
+use car_camera::CameraFollow;
 use car_steering::update_car_steering;
 use car_suspension::{update_car_suspension, CarPhysics};
 use car_wheel_control::update_car_wheel_control;
@@ -38,6 +39,7 @@ fn main() {
         )
         .insert_resource(AmbientLight { color: Color::WHITE, brightness: 1.0 })
         .register_type::<CarPhysics>()
+        .register_type::<CameraFollow>()
         .add_systems(OnEnter(GameState::Next), setup_with_assets)
         .add_systems(Update, close_on_esc)
         .add_systems(
@@ -47,7 +49,7 @@ fn main() {
                 update_car_steering,
                 car_acceleration,
                 update_car_wheel_control,
-                looking_at_car,
+                car_camera::camera_follow,
             )
                 .run_if(in_state(GameState::Next)),
         )
@@ -93,10 +95,17 @@ fn setup_with_assets(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 2.0, -10.).looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
-        ..default()
-    });
+    commands
+        .spawn(Camera3dBundle {
+            transform: Transform::from_xyz(0., 2.0, -10.)
+                .looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
+            ..default()
+        })
+        .insert(car_camera::CameraFollow {
+            camera_translation_speed: 2.0,
+            distance_behind: 5.0,
+            fake_transform: Transform::default(),
+        });
 
     commands.spawn(InfiniteGridBundle::default());
 
@@ -116,7 +125,6 @@ fn setup_with_assets(
         ))
         .insert(CarPhysics {
             chassis_size: Vec3::new(1.0, 0.4, 1.3),
-            car_transform_camera: Transform::from_xyz(0., 0., 0.),
             max_suspension: 0.6,
             suspension_strength: 250.,
             suspension_damping: 120.,
@@ -140,7 +148,7 @@ fn setup_with_assets(
                 scene: SceneBundle {
                     scene: assets.porsche.clone_weak(),
                     transform: Transform::from_xyz(0.0, -1.0, 0.3)
-                        .with_scale(Vec3::new(1.0, 1.0, -1.0)),
+                        .with_scale(Vec3::new(-1.0, 1.0, -1.0)),
                     ..default()
                 },
                 hook: SceneHook::new(|entity, commands| {
@@ -156,11 +164,12 @@ fn setup_with_assets(
         });
 
     // square base
+    let plane_size = 300.0;
     commands.spawn((
         RigidBody::Fixed,
-        Collider::cuboid(300.0, 0.1, 300.0),
+        Collider::cuboid(plane_size, 0.1, plane_size),
         PbrBundle {
-            mesh: meshes.add(shape::Quad { size: Vec2::splat(300.0), flip: true }.into()),
+            mesh: meshes.add(shape::Plane::from_size(plane_size * 2.0).into()),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
