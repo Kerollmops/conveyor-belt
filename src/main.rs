@@ -8,17 +8,18 @@ use bevy_asset_loader::prelude::*;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
-use bevy_scene_hook::HookPlugin;
+use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
 use bevy_vector_shapes::ShapePlugin;
-use car_camera::CameraFollow;
-use car_controls::car_controls;
+use car_acceleration::car_acceleration;
 use car_steering::update_car_steering;
 use car_suspension::{update_car_suspension, CarPhysics};
+use car_wheel_control::update_car_wheel_control;
 
+mod car_acceleration;
 mod car_camera;
-mod car_controls;
 mod car_steering;
 mod car_suspension;
+mod car_wheel_control;
 
 fn main() {
     App::new()
@@ -41,10 +42,16 @@ fn main() {
         .add_systems(Update, close_on_esc)
         .add_systems(
             Update,
-            (update_car_suspension, update_car_steering, car_controls, looking_at_car)
+            (
+                update_car_suspension,
+                update_car_steering,
+                car_acceleration,
+                update_car_wheel_control,
+                looking_at_car,
+            )
                 .run_if(in_state(GameState::Next)),
         )
-        .add_systems(PreUpdate, reset_car_external_forces)
+        .add_systems(PreUpdate, reset_car_external_forces.run_if(in_state(GameState::Next)))
         .run();
 }
 
@@ -83,21 +90,14 @@ fn setup_with_assets(
     mut commands: Commands,
     assets: Res<MyAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(0., 10.0, -10.)
-                .looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
-            ..default()
-        })
-        .insert(CameraFollow {
-            camera_translation_speed: 1000.,
-            fake_transform: Transform::from_xyz(0., 0., 0.),
-            distance_behind: 10.,
-        });
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(0., 10.0, -10.)
+            .looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
+        ..default()
+    });
 
     commands.spawn(InfiniteGridBundle::default());
 
@@ -109,10 +109,6 @@ fn setup_with_assets(
     });
 
     let car_size = Vec3::new(1.0, 0.5, 2.2);
-    let debug_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
-    });
 
     commands
         .spawn((
@@ -131,32 +127,35 @@ fn setup_with_assets(
             tire_mass: 1.0,
             top_speed: 150.0,
             wheel_rotation: 0.5,
+            wheel_rotation_speed: 0.5,
         })
         .insert(Velocity { ..default() })
         .insert(ExternalImpulse::default())
         .insert(ExternalForce::default())
+        .insert(ColliderMassProperties::Density(2.0))
         .insert(GravityScale(1.))
         .insert(Damping { linear_damping: 0., angular_damping: 3. })
-        .insert(Ccd::enabled());
-    // .with_children(|parent| {
-    //     // Spawn Car and Identify car wheels and elements
-    //     parent.spawn(HookedSceneBundle {
-    //         scene: SceneBundle {
-    //             scene: assets.porsche.clone_weak(),
-    //             transform: Transform::from_xyz(0.0, -0.9, -0.3),
-    //             ..default()
-    //         },
-    //         hook: SceneHook::new(|entity, commands| {
-    //             match entity.get::<Name>().map(|t| t.as_str()) {
-    //                 Some("Front-Left-Wheel") => commands.insert(CarWheel::FrontLeft),
-    //                 Some("Front-Right-Wheel") => commands.insert(CarWheel::FrontRight),
-    //                 Some("Back-Left-Wheel") => commands.insert(CarWheel::BackLeft),
-    //                 Some("Back-Right-Wheel") => commands.insert(CarWheel::BackRight),
-    //                 _ => commands,
-    //             };
-    //         }),
-    //     });
-    // });
+        .insert(Ccd::enabled())
+        .with_children(|parent| {
+            // Spawn Car and Identify car wheels and elements
+            parent.spawn(HookedSceneBundle {
+                scene: SceneBundle {
+                    scene: assets.porsche.clone_weak(),
+                    transform: Transform::from_xyz(0.0, -0.9, 0.5)
+                        .with_scale(Vec3::new(1.0, 1.0, -1.0)),
+                    ..default()
+                },
+                hook: SceneHook::new(|entity, commands| {
+                    match entity.get::<Name>().map(|t| t.as_str()) {
+                        Some("Front-Left-Wheel") => commands.insert(CarWheel::FrontLeft),
+                        Some("Front-Right-Wheel") => commands.insert(CarWheel::FrontRight),
+                        Some("Back-Left-Wheel") => commands.insert(CarWheel::BackLeft),
+                        Some("Back-Right-Wheel") => commands.insert(CarWheel::BackRight),
+                        _ => commands,
+                    };
+                }),
+            });
+        });
 
     // square base
     commands.spawn((

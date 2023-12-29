@@ -1,8 +1,5 @@
-use std::f32::consts::PI;
-
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use lerp::Lerp;
 
 use crate::car_suspension::CarPhysics;
 
@@ -49,7 +46,6 @@ pub fn update_car_steering(
         // steering force
         if hit.is_some() {
             // World-space direction of the spring force
-            // TODO
             let steering_dir = if i == 0 || i == 1 {
                 if wheel_rotation <= 0.5 {
                     car_transform.forward().lerp(car_transform.right(), wheel_rotation / 0.5)

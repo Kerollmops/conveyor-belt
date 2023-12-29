@@ -19,6 +19,7 @@ pub struct CarPhysics {
     pub top_speed: f32,
     #[inspector(min = 0.0, max = 1.0)]
     pub wheel_rotation: f32,
+    pub wheel_rotation_speed: f32,
 }
 
 pub fn update_car_suspension(
