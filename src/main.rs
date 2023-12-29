@@ -2,7 +2,6 @@
 
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
-use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
@@ -114,7 +113,6 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
 
     commands
         .spawn((
-            Car,
             RigidBody::Dynamic,
             TransformBundle::from(Transform::from_xyz(0.0, 1.6, 0.0)),
             Collider::cuboid(1.0, 0.5, 2.2),
@@ -134,7 +132,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             wheel_rotation: 0.5,
             wheel_rotation_speed: 3.0,
         })
-        .insert(Velocity { ..default() })
+        .insert(Velocity::default())
         .insert(ExternalImpulse::default())
         .insert(ExternalForce::default())
         .insert(ColliderMassProperties::Density(2.0))
@@ -192,45 +190,4 @@ fn setup_map(
             },
         ))
         .insert(x_shape);
-}
-
-#[derive(Default, Component)]
-struct Car;
-
-fn looking_at_car(
-    mut camera_q: Query<&mut Transform, With<Camera>>,
-    car_q: Query<&mut GlobalTransform, With<Car>>,
-) {
-    let car_transform = car_q.get_single().unwrap();
-    for mut transform in camera_q.iter_mut() {
-        transform.look_at(car_transform.translation(), Vec3::ZERO);
-    }
-}
-
-/// Creates a colorful test pattern
-fn uv_debug_texture() -> Image {
-    const TEXTURE_SIZE: usize = 8;
-
-    let mut palette: [u8; 32] = [
-        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
-        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
-    ];
-
-    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
-    for y in 0..TEXTURE_SIZE {
-        let offset = TEXTURE_SIZE * y * 4;
-        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
-        palette.rotate_right(4);
-    }
-
-    Image::new_fill(
-        Extent3d {
-            width: TEXTURE_SIZE as u32,
-            height: TEXTURE_SIZE as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &texture_data,
-        TextureFormat::Rgba8UnormSrgb,
-    )
 }

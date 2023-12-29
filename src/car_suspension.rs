@@ -2,8 +2,6 @@ use bevy::prelude::*;
 use bevy_inspector_egui::inspector_options::ReflectInspectorOptions;
 use bevy_inspector_egui::InspectorOptions;
 use bevy_rapier3d::prelude::*;
-use bevy_vector_shapes::painter::{ShapeConfig, ShapePainter};
-use bevy_vector_shapes::shapes::LinePainter;
 
 #[derive(Component, Reflect, InspectorOptions)]
 #[reflect(InspectorOptions)]
@@ -33,7 +31,7 @@ pub struct CarPhysics {
 }
 
 pub fn update_car_suspension(
-    mut painter: ShapePainter,
+    // mut painter: ShapePainter,
     rapier_context: Res<RapierContext>,
     mut car_query: Query<(
         &RapierRigidBodyHandle,
@@ -80,8 +78,8 @@ pub fn update_car_suspension(
         // suspension spring force
         match hit {
             Some((_entity, ray_intersection)) => {
-                painter.set_config(ShapeConfig { color: Color::GREEN, ..painter.config().clone() });
-                painter.line(wheel, ray_intersection.point);
+                // painter.set_config(ShapeConfig { color: Color::GREEN, ..painter.config().clone() });
+                // painter.line(wheel, ray_intersection.point);
 
                 // World-space direction of the spring force.
                 let suspension_dir = car_transform.up();
@@ -115,8 +113,8 @@ pub fn update_car_suspension(
                 car_force.torque += add_force.torque;
             }
             None => {
-                painter.reset();
-                painter.line(wheel, wheel + car_transform.down() * max_suspension);
+                // painter.reset();
+                // painter.line(wheel, wheel + car_transform.down() * max_suspension);
             }
         }
     }
