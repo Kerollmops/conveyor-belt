@@ -11,10 +11,10 @@ use bevy_rapier3d::prelude::*;
 use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
 use bevy_vector_shapes::ShapePlugin;
 use car_acceleration::car_acceleration;
-use car_camera::CameraFollow;
+use car_camera::{camera_follow, CameraFollow};
 use car_steering::update_car_steering;
 use car_suspension::{update_car_suspension, CarPhysics};
-use car_wheel_control::update_car_wheel_control;
+use car_wheel_control::{update_car_wheel_control, update_car_wheels};
 
 mod car_acceleration;
 mod car_camera;
@@ -41,6 +41,7 @@ fn main() {
         .register_type::<CarPhysics>()
         .register_type::<CameraFollow>()
         .add_systems(OnEnter(GameState::Next), setup_with_assets)
+        .add_systems(PreUpdate, reset_car_external_forces.run_if(in_state(GameState::Next)))
         .add_systems(Update, close_on_esc)
         .add_systems(
             Update,
@@ -49,11 +50,11 @@ fn main() {
                 update_car_steering,
                 car_acceleration,
                 update_car_wheel_control,
-                car_camera::camera_follow,
+                update_car_wheels.after(update_car_wheel_control),
             )
                 .run_if(in_state(GameState::Next)),
         )
-        .add_systems(PreUpdate, reset_car_external_forces.run_if(in_state(GameState::Next)))
+        .add_systems(PostUpdate, camera_follow.run_if(in_state(GameState::Next)))
         .run();
 }
 
