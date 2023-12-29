@@ -11,7 +11,7 @@ use bevy_rapier3d::prelude::*;
 use bevy_scene_hook::HookPlugin;
 use bevy_vector_shapes::ShapePlugin;
 use car_camera::CameraFollow;
-use car_controls::{car_controls, CarController};
+use car_controls::car_controls;
 use car_steering::update_car_steering;
 use car_suspension::{update_car_suspension, CarPhysics};
 
@@ -37,7 +37,6 @@ fn main() {
         )
         .insert_resource(AmbientLight { color: Color::WHITE, brightness: 1.0 })
         .register_type::<CarPhysics>()
-        .register_type::<CarController>()
         .add_systems(OnEnter(GameState::Next), setup_with_assets)
         .add_systems(Update, close_on_esc)
         .add_systems(
@@ -130,12 +129,8 @@ fn setup_with_assets(
             suspension_damping: 120.,
             tire_grip_factor: 0.8,
             tire_mass: 1.0,
-        })
-        .insert(CarController {
-            rotate_speed: 5200.0,
-            max_speed: 5000.0,
-            tire_grip_factor: 1.,
-            tire_mass: 30.0,
+            top_speed: 150.0,
+            wheel_rotation: 0.5,
         })
         .insert(Velocity { ..default() })
         .insert(ExternalImpulse::default())

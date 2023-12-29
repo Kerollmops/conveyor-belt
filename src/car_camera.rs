@@ -13,7 +13,7 @@ pub struct CameraFollow {
 pub fn camera_follow(
     time: Res<Time>,
     rapier_context: Res<RapierContext>,
-    mut car_query: Query<(&mut CarPhysics, &mut Transform), Without<CameraFollow>>,
+    mut car_query: Query<(&CarPhysics, &mut Transform), Without<CameraFollow>>,
     mut camera_query: Query<(&mut CameraFollow, &mut Transform), Without<CarPhysics>>,
 ) {
     let Ok((mut camera_follow, mut camera_transform)) = camera_query.get_single_mut() else {

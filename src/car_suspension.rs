@@ -16,6 +16,9 @@ pub struct CarPhysics {
     #[inspector(min = 0.0, max = 1.0)]
     pub tire_grip_factor: f32,
     pub tire_mass: f32,
+    pub top_speed: f32,
+    #[inspector(min = 0.0, max = 1.0)]
+    pub wheel_rotation: f32,
 }
 
 pub fn update_car_suspension(
@@ -28,8 +31,7 @@ pub fn update_car_suspension(
         &mut Transform,
     )>,
 ) {
-    let Ok((handle, mut car_physics, mut car_force, car_transform)) = car_query.get_single_mut()
-    else {
+    let Ok((handle, car_physics, mut car_force, car_transform)) = car_query.get_single_mut() else {
         return;
     };
 
