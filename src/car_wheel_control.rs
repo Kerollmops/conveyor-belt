@@ -24,6 +24,15 @@ pub fn update_car_wheel_control(
         *wheel_rotation += *wheel_rotation_speed * time.delta_seconds();
     }
 
+    // Move the wheels back to position
+    if !keys.pressed(KeyCode::A) && !keys.pressed(KeyCode::D) {
+        *wheel_rotation = if *wheel_rotation <= 0.5 {
+            (*wheel_rotation + *wheel_rotation_speed * time.delta_seconds()).min(0.5)
+        } else {
+            (*wheel_rotation - *wheel_rotation_speed * time.delta_seconds()).max(0.5)
+        };
+    }
+
     *wheel_rotation = wheel_rotation.clamp(0.2, 0.8);
 }
 

@@ -34,10 +34,8 @@ pub fn car_acceleration(
 
     let wheels = [front_right, front_left, back_right, back_left];
 
-    let mut accel_input = 0.0;
-    if keys.pressed(KeyCode::W) {
-        accel_input += top_speed;
-    }
+    let accel_input =
+        if keys.pressed(KeyCode::W) || keys.pressed(KeyCode::S) { top_speed } else { 0.0 };
 
     for wheel in wheels {
         let hit = rapier_context.cast_ray(
@@ -51,7 +49,13 @@ pub fn car_acceleration(
         // acceleration / braking
         if hit.is_some() {
             // World-space direction of the acceleration/braking force.
-            let accel_dir = car_transform.forward();
+            let accel_dir = if keys.pressed(KeyCode::W) {
+                car_transform.forward()
+            } else if keys.pressed(KeyCode::S) {
+                car_transform.back()
+            } else {
+                Vec3::ZERO
+            };
 
             if accel_input > 0.0 {
                 // Forward speed of the car (in the direction of driving)

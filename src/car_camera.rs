@@ -37,7 +37,7 @@ pub fn camera_follow(
         camera_follow.fake_transform.translation,
         camera_follow.camera_translation_speed * time.delta_seconds(),
     );
-    camera_transform.look_at(car_transform.translation, Vec3::Y);
+    camera_transform.look_at(car_transform.translation, Vec3::ZERO);
 
     let hit = rapier_context.cast_ray_and_get_normal(
         camera_transform.translation,

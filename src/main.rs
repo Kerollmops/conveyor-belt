@@ -40,7 +40,7 @@ fn main() {
         .insert_resource(AmbientLight { color: Color::WHITE, brightness: 1.0 })
         .register_type::<CarPhysics>()
         .register_type::<CameraFollow>()
-        .add_systems(OnEnter(GameState::Next), setup_with_assets)
+        .add_systems(OnEnter(GameState::Next), (setup_with_assets, setup_map))
         .add_systems(PreUpdate, reset_car_external_forces.run_if(in_state(GameState::Next)))
         .add_systems(Update, close_on_esc)
         .add_systems(
@@ -69,8 +69,8 @@ fn reset_car_external_forces(mut car_query: Query<&mut ExternalForce, With<CarPh
 struct MyAssets {
     #[asset(path = "cars/models/porsche_911_930_turbo.glb#Scene0")]
     porsche: Handle<Scene>,
-    // #[asset(path = "maps/playground.glb#Scene0")]
-    // playground: Handle<Scene>,
+    #[asset(path = "maps/playground.glb#Scene0")]
+    playground: Handle<Mesh>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
@@ -89,12 +89,7 @@ enum CarWheel {
 }
 
 /// set up a simple 3D scene
-fn setup_with_assets(
-    mut commands: Commands,
-    assets: Res<MyAssets>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
     // camera
     commands
         .spawn(Camera3dBundle {
@@ -127,14 +122,14 @@ fn setup_with_assets(
         .insert(CarPhysics {
             chassis_size: Vec3::new(1.0, 0.4, 1.3),
             max_suspension: 0.6,
-            suspension_strength: 250.,
-            suspension_damping: 120.,
+            suspension_strength: 350.,
+            suspension_damping: 25.,
             front_tire_grip_factor: 0.8,
             back_tire_grip_factor: 0.4,
-            tire_mass: 1.0,
+            tire_mass: 0.5,
             top_speed: 150.0,
             wheel_rotation: 0.5,
-            wheel_rotation_speed: 0.5,
+            wheel_rotation_speed: 3.0,
         })
         .insert(Velocity { ..default() })
         .insert(ExternalImpulse::default())
@@ -142,7 +137,10 @@ fn setup_with_assets(
         .insert(ColliderMassProperties::Density(2.0))
         .insert(GravityScale(1.))
         .insert(Damping { linear_damping: 0., angular_damping: 3. })
-        .insert(Ccd::enabled())
+        // .insert(Ccd::enabled())
+        // Makes rapier to panic:
+        // thread 'Compute Task Pool (0)' panicked at parry3d-0.13.5/src/query/nonlinear_time_of_impact/nonlinear_time_of_impact_support_map_support_map.rs:201:40:
+        // internal error: entered unreachable code
         .with_children(|parent| {
             // Spawn Car and Identify car wheels and elements
             parent.spawn(HookedSceneBundle {
@@ -163,19 +161,34 @@ fn setup_with_assets(
                 }),
             });
         });
+}
 
-    // square base
-    let plane_size = 300.0;
-    commands.spawn((
-        RigidBody::Fixed,
-        Collider::cuboid(plane_size, 0.1, plane_size),
-        PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(plane_size * 2.0).into()),
-            material: materials.add(Color::WHITE.into()),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
-    ));
+fn setup_map(
+    mut commands: Commands,
+    assets: Res<MyAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let m = meshes.get(&assets.playground);
+    let mut map_mesh = m.unwrap().clone();
+    Mesh::generate_tangents(&mut map_mesh).unwrap();
+
+    let x_shape = Collider::from_bevy_mesh(m.unwrap(), &ComputedColliderShape::TriMesh).unwrap();
+    if Collider::from_bevy_mesh(m.unwrap(), &ComputedColliderShape::TriMesh).is_none() {
+        println!("the mesh failed to load");
+    }
+
+    commands
+        .spawn((
+            RigidBody::Fixed,
+            PbrBundle {
+                transform: Transform::from_xyz(0., 5., 0.).with_scale(Vec3::new(5., 5., 5.)),
+                mesh: meshes.add(map_mesh),
+                material: materials.add(Color::ANTIQUE_WHITE.into()),
+                ..default()
+            },
+        ))
+        .insert(x_shape);
 }
 
 #[derive(Default, Component)]
