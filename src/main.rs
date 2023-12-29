@@ -1,6 +1,5 @@
 #![allow(clippy::type_complexity)]
 
-use std::f32::consts::PI;
 use std::iter;
 
 use bevy::input::common_conditions::input_toggle_active;
@@ -11,8 +10,9 @@ use bevy_asset_loader::prelude::*;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
-use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
-use car_camera::{camera_follow, CameraFollow};
+use bevy_scene_hook::HookPlugin;
+use bevy_vector_shapes::ShapePlugin;
+use car_camera::CameraFollow;
 use car_controls::{car_controls, CarController};
 use car_suspension::{update_car_suspension, CarPhysics, WheelInfo};
 
@@ -28,6 +28,7 @@ fn main() {
         .add_plugins(HookPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(RapierDebugRenderPlugin::default())
+        .add_plugins(ShapePlugin::default())
         .add_plugins(WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)))
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)
@@ -41,13 +42,7 @@ fn main() {
         .add_systems(Update, close_on_esc)
         .add_systems(
             Update,
-            (
-                update_car_suspension,
-                looking_at_car,
-                car_controls.after(update_car_suspension),
-                // get_in_nearest_car,
-                // get_out_of_the_car,
-            )
+            (update_car_suspension, looking_at_car, car_controls.after(update_car_suspension))
                 .run_if(in_state(GameState::Next)),
         )
         .run();
@@ -130,16 +125,16 @@ fn setup_with_assets(
         .spawn((
             Car,
             RigidBody::Dynamic,
-            TransformBundle::from(Transform::from_xyz(0.0, 1.0, 0.0)),
+            TransformBundle::from(Transform::from_xyz(0.0, 1.6, 0.0)),
             Collider::cuboid(car_size.x, car_size.y, car_size.z),
         ))
         .insert(CarPhysics {
-            wheels_stationary_animation_speed: 10.,
-            wheels_animation_speed: 3.,
             wheel_infos,
-            plane: Vec3::ZERO,
             car_size,
             car_transform_camera: Transform::from_xyz(0., 0., 0.),
+            max_suspension: 0.6,
+            suspension_strength: 250.,
+            suspension_damping: 120.,
         })
         .insert(CarController {
             car_linear_damping: 0.5,
@@ -147,40 +142,38 @@ fn setup_with_assets(
             slerp_speed: 5.,
             rotated_last_frame: false,
             center_of_mass_altered: false,
-            speed: 50000.,
+            speed: 5000.,
             rotate_speed: 5200.,
         })
         .insert(Velocity { ..default() })
-        .insert(ExternalImpulse {
-            impulse: Vec3::new(0., 0., 0.),
-            torque_impulse: Vec3::new(0., 0., 0.),
-        })
+        .insert(ExternalImpulse::default())
         .insert(ExternalForce::default())
         .insert(GravityScale(1.))
         .insert(Damping { linear_damping: 0., angular_damping: 3. })
-        .insert(Ccd::enabled())
-        .with_children(|parent| {
-            // Spawn Car and Identify car wheels and elements
-            parent.spawn(HookedSceneBundle {
-                scene: SceneBundle {
-                    scene: assets.porsche.clone_weak(),
-                    transform: Transform::from_xyz(0.0, -0.9, -0.3),
-                    ..default()
-                },
-                hook: SceneHook::new(|entity, commands| {
-                    match entity.get::<Name>().map(|t| t.as_str()) {
-                        Some("Front-Left-Wheel") => commands.insert(CarWheel::FrontLeft),
-                        Some("Front-Right-Wheel") => commands.insert(CarWheel::FrontRight),
-                        Some("Back-Left-Wheel") => commands.insert(CarWheel::BackLeft),
-                        Some("Back-Right-Wheel") => commands.insert(CarWheel::BackRight),
-                        _ => commands,
-                    };
-                }),
-            });
-        });
+        .insert(Ccd::enabled());
+    // .with_children(|parent| {
+    //     // Spawn Car and Identify car wheels and elements
+    //     parent.spawn(HookedSceneBundle {
+    //         scene: SceneBundle {
+    //             scene: assets.porsche.clone_weak(),
+    //             transform: Transform::from_xyz(0.0, -0.9, -0.3),
+    //             ..default()
+    //         },
+    //         hook: SceneHook::new(|entity, commands| {
+    //             match entity.get::<Name>().map(|t| t.as_str()) {
+    //                 Some("Front-Left-Wheel") => commands.insert(CarWheel::FrontLeft),
+    //                 Some("Front-Right-Wheel") => commands.insert(CarWheel::FrontRight),
+    //                 Some("Back-Left-Wheel") => commands.insert(CarWheel::BackLeft),
+    //                 Some("Back-Right-Wheel") => commands.insert(CarWheel::BackRight),
+    //                 _ => commands,
+    //             };
+    //         }),
+    //     });
+    // });
 
     // square base
     commands.spawn((
+        RigidBody::Fixed,
         Collider::cuboid(300.0, 0.1, 300.0),
         PbrBundle {
             mesh: meshes.add(shape::Quad { size: Vec2::splat(300.0), flip: false }.into()),
