@@ -12,10 +12,19 @@ pub struct CarPhysics {
     pub max_suspension: f32,
     pub suspension_strength: f32,
     pub suspension_damping: f32,
+
     #[inspector(min = 0.0, max = 1.0)]
-    pub front_tire_grip_factor: f32,
+    pub front_tire_max_grip_factor: f32,
     #[inspector(min = 0.0, max = 1.0)]
-    pub back_tire_grip_factor: f32,
+    pub front_tire_min_grip_factor: f32,
+
+    #[inspector(min = 0.0, max = 1.0)]
+    pub back_tire_max_grip_factor: f32,
+    #[inspector(min = 0.0, max = 1.0)]
+    pub back_tire_min_grip_factor: f32,
+
+    pub tire_grip_velocity_multiplier: f32,
+
     pub tire_mass: f32,
     pub top_speed: f32,
     #[inspector(min = 0.0, max = 1.0)]

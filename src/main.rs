@@ -124,8 +124,11 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             max_suspension: 0.6,
             suspension_strength: 350.,
             suspension_damping: 25.,
-            front_tire_grip_factor: 0.8,
-            back_tire_grip_factor: 0.4,
+            front_tire_max_grip_factor: 0.9,
+            front_tire_min_grip_factor: 0.2,
+            back_tire_max_grip_factor: 0.4,
+            back_tire_min_grip_factor: 0.1,
+            tire_grip_velocity_multiplier: 5.0,
             tire_mass: 0.5,
             top_speed: 150.0,
             wheel_rotation: 0.5,
@@ -182,7 +185,7 @@ fn setup_map(
         .spawn((
             RigidBody::Fixed,
             PbrBundle {
-                transform: Transform::from_xyz(0., 5., 0.).with_scale(Vec3::new(5., 5., 5.)),
+                transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3::new(5., 5., 5.)),
                 mesh: meshes.add(map_mesh),
                 material: materials.add(Color::ANTIQUE_WHITE.into()),
                 ..default()
