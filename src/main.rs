@@ -94,8 +94,7 @@ fn setup_with_assets(
 ) {
     // camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 10.0, -10.)
-            .looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
+        transform: Transform::from_xyz(0., 2.0, -10.).looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
         ..default()
     });
 
@@ -108,22 +107,21 @@ fn setup_with_assets(
         ..default()
     });
 
-    let car_size = Vec3::new(1.0, 0.5, 2.2);
-
     commands
         .spawn((
             Car,
             RigidBody::Dynamic,
             TransformBundle::from(Transform::from_xyz(0.0, 1.6, 0.0)),
-            Collider::cuboid(car_size.x, car_size.y, car_size.z),
+            Collider::cuboid(1.0, 0.5, 2.2),
         ))
         .insert(CarPhysics {
-            car_size,
+            chassis_size: Vec3::new(1.0, 0.4, 1.3),
             car_transform_camera: Transform::from_xyz(0., 0., 0.),
             max_suspension: 0.6,
             suspension_strength: 250.,
             suspension_damping: 120.,
-            tire_grip_factor: 0.8,
+            front_tire_grip_factor: 0.8,
+            back_tire_grip_factor: 0.4,
             tire_mass: 1.0,
             top_speed: 150.0,
             wheel_rotation: 0.5,
@@ -141,7 +139,7 @@ fn setup_with_assets(
             parent.spawn(HookedSceneBundle {
                 scene: SceneBundle {
                     scene: assets.porsche.clone_weak(),
-                    transform: Transform::from_xyz(0.0, -0.9, 0.5)
+                    transform: Transform::from_xyz(0.0, -1.0, 0.3)
                         .with_scale(Vec3::new(1.0, 1.0, -1.0)),
                     ..default()
                 },
@@ -162,7 +160,7 @@ fn setup_with_assets(
         RigidBody::Fixed,
         Collider::cuboid(300.0, 0.1, 300.0),
         PbrBundle {
-            mesh: meshes.add(shape::Quad { size: Vec2::splat(300.0), flip: false }.into()),
+            mesh: meshes.add(shape::Quad { size: Vec2::splat(300.0), flip: true }.into()),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()

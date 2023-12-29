@@ -13,24 +13,30 @@ pub fn update_car_steering(
     };
 
     let CarPhysics {
-        car_size, max_suspension, tire_mass, tire_grip_factor, wheel_rotation, ..
+        chassis_size,
+        max_suspension,
+        tire_mass,
+        front_tire_grip_factor,
+        back_tire_grip_factor,
+        wheel_rotation,
+        ..
     } = *car_physics;
 
     let front_right = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.forward() * car_size.z)
-        + (car_transform.right() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.forward() * chassis_size.z)
+        + (car_transform.right() * chassis_size.x);
 
     let front_left = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.forward() * car_size.z)
-        + (car_transform.left() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.forward() * chassis_size.z)
+        + (car_transform.left() * chassis_size.x);
 
     let back_right = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.back() * car_size.z)
-        + (car_transform.right() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.back() * chassis_size.z)
+        + (car_transform.right() * chassis_size.x);
 
     let back_left = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.back() * car_size.z)
-        + (car_transform.left() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.back() * chassis_size.z)
+        + (car_transform.left() * chassis_size.x);
 
     let wheels = [front_right, front_left, back_right, back_left];
 
@@ -69,6 +75,8 @@ pub fn update_car_steering(
 
             // The change in velocity that we're loking for is -steering_vel * grip_factor
             // grip_factor is in range 0-1, 0 means no grip, 1 means full grip
+            let tire_grip_factor =
+                if i == 0 || i == 1 { front_tire_grip_factor } else { back_tire_grip_factor };
             let desired_vel_change = -steering_vel * tire_grip_factor;
 
             // The change in velocity into an acceleration (acceleration = change in vel / time)

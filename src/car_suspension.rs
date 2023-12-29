@@ -8,13 +8,15 @@ use bevy_vector_shapes::shapes::LinePainter;
 #[derive(Component, Reflect, InspectorOptions)]
 #[reflect(InspectorOptions)]
 pub struct CarPhysics {
-    pub car_size: Vec3,
+    pub chassis_size: Vec3,
     pub car_transform_camera: Transform,
     pub max_suspension: f32,
     pub suspension_strength: f32,
     pub suspension_damping: f32,
     #[inspector(min = 0.0, max = 1.0)]
-    pub tire_grip_factor: f32,
+    pub front_tire_grip_factor: f32,
+    #[inspector(min = 0.0, max = 1.0)]
+    pub back_tire_grip_factor: f32,
     pub tire_mass: f32,
     pub top_speed: f32,
     #[inspector(min = 0.0, max = 1.0)]
@@ -36,24 +38,25 @@ pub fn update_car_suspension(
         return;
     };
 
-    let CarPhysics { car_size, max_suspension, suspension_strength, suspension_damping, .. } =
-        *car_physics;
+    let CarPhysics {
+        chassis_size, max_suspension, suspension_strength, suspension_damping, ..
+    } = *car_physics;
 
     let front_right = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.forward() * car_size.z)
-        + (car_transform.right() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.forward() * chassis_size.z)
+        + (car_transform.right() * chassis_size.x);
 
     let front_left = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.forward() * car_size.z)
-        + (car_transform.left() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.forward() * chassis_size.z)
+        + (car_transform.left() * chassis_size.x);
 
     let back_right = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.back() * car_size.z)
-        + (car_transform.right() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.back() * chassis_size.z)
+        + (car_transform.right() * chassis_size.x);
 
     let back_left = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.back() * car_size.z)
-        + (car_transform.left() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.back() * chassis_size.z)
+        + (car_transform.left() * chassis_size.x);
 
     let wheels = [front_right, front_left, back_right, back_left];
 

@@ -14,23 +14,23 @@ pub fn car_acceleration(
         return;
     };
 
-    let CarPhysics { car_size, max_suspension, top_speed, .. } = *car_physics;
+    let CarPhysics { chassis_size, max_suspension, top_speed, .. } = *car_physics;
 
     let front_right = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.forward() * car_size.z)
-        + (car_transform.right() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.forward() * chassis_size.z)
+        + (car_transform.right() * chassis_size.x);
 
     let front_left = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.forward() * car_size.z)
-        + (car_transform.left() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.forward() * chassis_size.z)
+        + (car_transform.left() * chassis_size.x);
 
     let back_right = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.back() * car_size.z)
-        + (car_transform.right() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.back() * chassis_size.z)
+        + (car_transform.right() * chassis_size.x);
 
     let back_left = car_transform.translation
-        + (car_transform.down() * car_size.y + car_transform.back() * car_size.z)
-        + (car_transform.left() * car_size.x);
+        + (car_transform.down() * chassis_size.y + car_transform.back() * chassis_size.z)
+        + (car_transform.left() * chassis_size.x);
 
     let wheels = [front_right, front_left, back_right, back_left];
 
