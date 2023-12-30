@@ -1,7 +1,13 @@
 #![allow(clippy::type_complexity)]
 
+use bevy::core_pipeline::bloom::BloomSettings;
+use bevy::core_pipeline::experimental::taa::TemporalAntiAliasBundle;
+use bevy::core_pipeline::fxaa::Fxaa;
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::common_conditions::input_toggle_active;
+use bevy::pbr::ScreenSpaceAmbientOcclusionBundle;
 use bevy::prelude::*;
+use bevy::render::view::ColorGrading;
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
@@ -36,7 +42,8 @@ fn main() {
                 .continue_to_state(GameState::Next)
                 .load_collection::<MyAssets>(),
         )
-        .insert_resource(AmbientLight { color: Color::WHITE, brightness: 1.0 })
+        .insert_resource(Msaa::Off)
+        .insert_resource(AmbientLight { brightness: 0.0, ..default() })
         .register_type::<CarPhysics>()
         .register_type::<CameraFollow>()
         .add_systems(OnEnter(GameState::Next), (setup_with_assets, setup_map))
@@ -53,7 +60,7 @@ fn main() {
             )
                 .run_if(in_state(GameState::Next)),
         )
-        .add_systems(PostUpdate, camera_follow.run_if(in_state(GameState::Next)))
+        .add_systems(PostUpdate, looking_at_car.run_if(in_state(GameState::Next)))
         .run();
 }
 
@@ -70,6 +77,11 @@ struct MyAssets {
     porsche: Handle<Scene>,
     #[asset(path = "maps/playground.glb#Scene0")]
     playground: Handle<Mesh>,
+
+    #[asset(path = "environments_maps/diffuse_rgb9e5_zstd.ktx2")]
+    diffuse_map: Handle<Image>,
+    #[asset(path = "environments_maps/specular_rgb9e5_zstd.ktx2")]
+    specular_map: Handle<Image>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
@@ -91,23 +103,47 @@ enum CarWheel {
 fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
     // camera
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(0., 2.0, -10.)
-                .looking_at(Vec3::new(0., 0., 0.), Vec3::ZERO),
-            ..default()
-        })
-        .insert(car_camera::CameraFollow {
-            camera_translation_speed: 2.0,
-            distance_behind: 5.0,
-            fake_transform: Transform::default(),
-        });
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(6.0, 6.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+                camera: Camera { hdr: true, order: 1, ..default() },
+                camera_3d: Camera3d {
+                    clear_color: bevy::core_pipeline::clear_color::ClearColorConfig::None,
+                    ..default()
+                },
+                color_grading: ColorGrading { exposure: 1.0, ..default() },
+                tonemapping: Tonemapping::AcesFitted,
+                projection: Projection::Perspective(PerspectiveProjection {
+                    near: 1e-8,
+                    ..Default::default()
+                }),
+                ..default()
+            },
+            Fxaa::default(),
+            BloomSettings::default(),
+            EnvironmentMapLight {
+                diffuse_map: assets.diffuse_map.clone(),
+                specular_map: assets.specular_map.clone(),
+            },
+        ))
+        .insert(TemporalAntiAliasBundle::default())
+        .insert(ScreenSpaceAmbientOcclusionBundle::default());
+    // .insert(CameraFollow {
+    //     camera_translation_speed: 2.0,
+    //     distance_behind: 5.0,
+    //     fake_transform: Transform::default(),
+    // });
 
     commands.spawn(InfiniteGridBundle::default());
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight { intensity: 1500.0, shadows_enabled: true, ..default() },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: 0_000.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(0.1, 1.0, -0.1).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
@@ -190,4 +226,17 @@ fn setup_map(
             },
         ))
         .insert(x_shape);
+}
+
+fn looking_at_car(
+    car_q: Query<&Transform, (With<CarPhysics>, Without<Camera>)>,
+    mut camera_q: Query<&mut Transform, (With<Camera>, Without<CarPhysics>)>,
+) {
+    let Ok(car_transform) = car_q.get_single() else {
+        return;
+    };
+
+    for mut camera_transform in camera_q.iter_mut() {
+        camera_transform.look_at(car_transform.translation, Vec3::ZERO);
+    }
 }
