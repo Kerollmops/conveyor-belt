@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 
 use bevy::core_pipeline::bloom::BloomSettings;
-use bevy::core_pipeline::experimental::taa::TemporalAntiAliasBundle;
+use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::common_conditions::input_toggle_active;
@@ -10,7 +10,6 @@ use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
-use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
@@ -30,13 +29,15 @@ mod car_wheel_control;
 fn main() {
     App::new()
         .add_state::<GameState>()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(InfiniteGridPlugin)
-        .add_plugins(HookPlugin)
-        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugins(RapierDebugRenderPlugin::default())
-        .add_plugins(ShapePlugin::default())
-        .add_plugins(WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)))
+        .add_plugins((
+            DefaultPlugins,
+            TemporalAntiAliasPlugin,
+            HookPlugin,
+            RapierPhysicsPlugin::<NoUserData>::default(),
+            RapierDebugRenderPlugin::default(),
+            ShapePlugin::default(),
+            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)),
+        ))
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)
                 .continue_to_state(GameState::Next)
@@ -133,8 +134,6 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
     //     distance_behind: 5.0,
     //     fake_transform: Transform::default(),
     // });
-
-    commands.spawn(InfiniteGridBundle::default());
 
     // light
     commands.spawn(DirectionalLightBundle {
