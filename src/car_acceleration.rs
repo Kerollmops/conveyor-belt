@@ -34,8 +34,11 @@ pub fn car_acceleration(
 
     let wheels = [front_right, front_left, back_right, back_left];
 
-    let accel_input =
-        if keys.pressed(KeyCode::W) || keys.pressed(KeyCode::S) { top_speed } else { 0.0 };
+    let accel_input = if keys.pressed(KeyCode::W) || keys.pressed(KeyCode::S) {
+        top_speed
+    } else {
+        top_speed / 10.0
+    };
 
     for wheel in wheels {
         let hit = rapier_context.cast_ray(
@@ -48,19 +51,26 @@ pub fn car_acceleration(
 
         // acceleration / braking
         if hit.is_some() {
+            // Forward speed of the car (in the direction of driving)
+            let car_speed = car_transform.forward().dot(velocity.linvel);
+
             // World-space direction of the acceleration/braking force.
+            #[allow(clippy::collapsible_else_if)]
             let accel_dir = if keys.pressed(KeyCode::W) {
                 car_transform.forward()
             } else if keys.pressed(KeyCode::S) {
                 car_transform.back()
             } else {
-                Vec3::ZERO
+                if car_speed > 0.0 {
+                    car_transform.back()
+                } else if car_speed < 0.0 {
+                    car_transform.forward()
+                } else {
+                    Vec3::ZERO
+                }
             };
 
             if accel_input > 0.0 {
-                // Forward speed of the car (in the direction of driving)
-                let car_speed = car_transform.forward().dot(velocity.linvel);
-
                 // Normalized car speed
                 let normalized_speed = (car_speed.abs() / top_speed).clamp(0.0, 1.0);
 

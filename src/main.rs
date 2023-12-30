@@ -156,9 +156,9 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         .insert(CarPhysics {
             chassis_size: Vec3::new(1.0, 0.4, 1.3),
             max_suspension: 0.6,
-            suspension_strength: 350.,
-            suspension_damping: 25.,
-            front_tire_max_grip_factor: 0.9,
+            suspension_strength: 450.,
+            suspension_damping: 250.,
+            front_tire_max_grip_factor: 1.0,
             front_tire_min_grip_factor: 0.2,
             back_tire_max_grip_factor: 0.4,
             back_tire_min_grip_factor: 0.1,
