@@ -43,6 +43,10 @@ fn main() {
                 .continue_to_state(GameState::Next)
                 .load_collection::<MyAssets>(),
         )
+        .insert_resource(RapierConfiguration {
+            timestep_mode: TimestepMode::Fixed { dt: 1.0 / 60.0, substeps: 1 },
+            ..default()
+        })
         .insert_resource(Msaa::Off)
         .insert_resource(AmbientLight { brightness: 0.0, ..default() })
         .register_type::<CarPhysics>()
