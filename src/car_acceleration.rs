@@ -46,7 +46,7 @@ pub fn car_acceleration(
     wheels_transforms.sort_unstable_by_key(|(wheel, _)| *wheel);
     assert_eq!(wheels.len(), wheels_transforms.len());
 
-    let accel_input = if keys.pressed(KeyCode::W) || keys.pressed(KeyCode::S) {
+    let accel_input = if keys.pressed(KeyCode::Up) || keys.pressed(KeyCode::Down) {
         top_speed
     } else {
         top_speed / 10.0
@@ -68,9 +68,9 @@ pub fn car_acceleration(
 
             // World-space direction of the acceleration/braking force.
             #[allow(clippy::collapsible_else_if)]
-            let accel_dir = if keys.pressed(KeyCode::W) {
+            let accel_dir = if keys.pressed(KeyCode::Up) {
                 (*car_transform.as_ref() * *wheel_tranform).forward()
-            } else if keys.pressed(KeyCode::S) {
+            } else if keys.pressed(KeyCode::Down) {
                 (*car_transform.as_ref() * *wheel_tranform).back()
             } else {
                 if car_speed > 0.0 {

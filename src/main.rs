@@ -44,7 +44,7 @@ fn main() {
                 .load_collection::<MyAssets>(),
         )
         .insert_resource(RapierConfiguration {
-            timestep_mode: TimestepMode::Fixed { dt: 1.0 / 60.0, substeps: 1 },
+            timestep_mode: TimestepMode::Fixed { dt: 1.0 / 75.0, substeps: 1 },
             ..default()
         })
         .insert_resource(Msaa::Off)
@@ -65,7 +65,7 @@ fn main() {
             )
                 .run_if(in_state(GameState::Next)),
         )
-        .add_systems(PostUpdate, looking_at_car.run_if(in_state(GameState::Next)))
+        .add_systems(PostUpdate, camera_follow.run_if(in_state(GameState::Next)))
         .run();
 }
 
@@ -132,12 +132,12 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             },
         ))
         .insert(TemporalAntiAliasBundle::default())
-        .insert(ScreenSpaceAmbientOcclusionBundle::default());
-    // .insert(CameraFollow {
-    //     camera_translation_speed: 2.0,
-    //     distance_behind: 5.0,
-    //     fake_transform: Transform::default(),
-    // });
+        .insert(ScreenSpaceAmbientOcclusionBundle::default())
+        .insert(CameraFollow {
+            camera_translation_speed: 2.0,
+            distance_behind: 5.0,
+            fake_transform: Transform::default(),
+        });
 
     // light
     commands.spawn(DirectionalLightBundle {
@@ -159,15 +159,15 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         .insert(CarPhysics {
             chassis_size: Vec3::new(1.0, 0.4, 1.3),
             max_suspension: 0.6,
-            suspension_strength: 450.,
+            suspension_strength: 350.,
             suspension_damping: 250.,
             front_tire_max_grip_factor: 1.0,
-            front_tire_min_grip_factor: 0.2,
-            back_tire_max_grip_factor: 0.4,
-            back_tire_min_grip_factor: 0.1,
+            front_tire_min_grip_factor: 0.4,
+            back_tire_max_grip_factor: 0.8,
+            back_tire_min_grip_factor: 0.3,
             tire_grip_velocity_multiplier: 5.0,
-            tire_mass: 0.5,
-            top_speed: 150.0,
+            tire_mass: 0.6,
+            top_speed: 350.0,
             wheel_rotation: 0.5,
             wheel_rotation_speed: 3.0,
         })

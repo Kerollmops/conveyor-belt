@@ -17,15 +17,15 @@ pub fn update_car_wheel_control(
 
     let CarPhysics { wheel_rotation, wheel_rotation_speed, .. } = car_physics.as_mut();
 
-    if keys.pressed(KeyCode::A) {
+    if keys.pressed(KeyCode::Left) {
         *wheel_rotation -= *wheel_rotation_speed * time.delta_seconds();
     }
-    if keys.pressed(KeyCode::D) {
+    if keys.pressed(KeyCode::Right) {
         *wheel_rotation += *wheel_rotation_speed * time.delta_seconds();
     }
 
     // Move the wheels back to position
-    if !keys.pressed(KeyCode::A) && !keys.pressed(KeyCode::D) {
+    if !keys.pressed(KeyCode::Left) && !keys.pressed(KeyCode::Right) {
         *wheel_rotation = if *wheel_rotation <= 0.5 {
             (*wheel_rotation + *wheel_rotation_speed * time.delta_seconds()).min(0.5)
         } else {
@@ -33,7 +33,7 @@ pub fn update_car_wheel_control(
         };
     }
 
-    *wheel_rotation = wheel_rotation.clamp(0.2, 0.8);
+    *wheel_rotation = wheel_rotation.clamp(0.1, 0.9);
 }
 
 pub fn update_car_wheels(
