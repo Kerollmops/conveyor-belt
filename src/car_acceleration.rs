@@ -3,16 +3,25 @@ use bevy_rapier3d::prelude::*;
 use lerp::Lerp;
 
 use crate::car_suspension::CarPhysics;
+use crate::CarWheel;
 
 pub fn car_acceleration(
     keys: Res<Input<KeyCode>>,
     rapier_context: Res<RapierContext>,
-    mut car_query: Query<(&CarPhysics, &Velocity, &mut ExternalForce, &mut Transform)>,
+    mut car_query: Query<
+        (&CarPhysics, &Velocity, &mut ExternalForce, &mut Transform),
+        Without<CarWheel>,
+    >,
+    wheels_transforms_query: Query<(&CarWheel, &Transform), Without<CarPhysics>>,
 ) {
     let Ok((car_physics, velocity, mut car_force, car_transform)) = car_query.get_single_mut()
     else {
         return;
     };
+
+    if wheels_transforms_query.is_empty() {
+        return;
+    }
 
     let CarPhysics { chassis_size, max_suspension, top_speed, .. } = *car_physics;
 
@@ -33,6 +42,9 @@ pub fn car_acceleration(
         + (car_transform.left() * chassis_size.x);
 
     let wheels = [front_right, front_left, back_right, back_left];
+    let mut wheels_transforms: Vec<_> = wheels_transforms_query.iter().collect();
+    wheels_transforms.sort_unstable_by_key(|(wheel, _)| *wheel);
+    assert_eq!(wheels.len(), wheels_transforms.len());
 
     let accel_input = if keys.pressed(KeyCode::W) || keys.pressed(KeyCode::S) {
         top_speed
@@ -40,7 +52,7 @@ pub fn car_acceleration(
         top_speed / 10.0
     };
 
-    for wheel in wheels {
+    for (wheel, (car_wheel, wheel_tranform)) in wheels.into_iter().zip(wheels_transforms) {
         let hit = rapier_context.cast_ray(
             wheel,
             car_transform.down(),
@@ -50,21 +62,21 @@ pub fn car_acceleration(
         );
 
         // acceleration / braking
-        if hit.is_some() {
+        if hit.is_some() && matches!(car_wheel, CarWheel::FrontRight | CarWheel::FrontLeft) {
             // Forward speed of the car (in the direction of driving)
             let car_speed = car_transform.forward().dot(velocity.linvel);
 
             // World-space direction of the acceleration/braking force.
             #[allow(clippy::collapsible_else_if)]
             let accel_dir = if keys.pressed(KeyCode::W) {
-                car_transform.forward()
+                (*car_transform.as_ref() * *wheel_tranform).forward()
             } else if keys.pressed(KeyCode::S) {
-                car_transform.back()
+                (*car_transform.as_ref() * *wheel_tranform).back()
             } else {
                 if car_speed > 0.0 {
-                    car_transform.back()
+                    (*car_transform.as_ref() * *wheel_tranform).back()
                 } else if car_speed < 0.0 {
-                    car_transform.forward()
+                    (*car_transform.as_ref() * *wheel_tranform).forward()
                 } else {
                     Vec3::ZERO
                 }

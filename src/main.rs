@@ -96,12 +96,12 @@ enum GameState {
     Next,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum CarWheel {
-    FrontLeft,
     FrontRight,
-    BackLeft,
+    FrontLeft,
     BackRight,
+    BackLeft,
 }
 
 /// set up a simple 3D scene
@@ -177,7 +177,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         .insert(ColliderMassProperties::Density(2.0))
         .insert(GravityScale(1.))
         .insert(Damping { linear_damping: 0., angular_damping: 3. })
-        .insert(Ccd::enabled())
+        // .insert(Ccd::enabled())
         // Makes rapier to panic:
         // thread 'Compute Task Pool (0)' panicked at parry3d-0.13.5/src/query/nonlinear_time_of_impact/nonlinear_time_of_impact_support_map_support_map.rs:201:40:
         // internal error: entered unreachable code
