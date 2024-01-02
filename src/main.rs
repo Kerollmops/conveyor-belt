@@ -166,7 +166,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             tire_mass: 0.7,
             top_speed: 350.0,
             wheel_rotation: 0.5,
-            wheel_rotation_speed: 2.5,
+            wheel_rotation_speed: 1.5,
         })
         .insert(Velocity::default())
         .insert(ExternalImpulse::default())

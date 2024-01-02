@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+use bevy_rapier3d::dynamics::Velocity;
 use lerp::Lerp;
 
 use crate::car_suspension::CarPhysics;
@@ -9,13 +10,13 @@ use crate::CarWheel;
 pub fn update_car_wheel_control(
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
-    mut car_query: Query<&mut CarPhysics>,
+    mut car_query: Query<(&mut CarPhysics, &Velocity, &mut Transform)>,
 ) {
-    let Ok(mut car_physics) = car_query.get_single_mut() else {
+    let Ok((mut car_physics, velocity, car_transform)) = car_query.get_single_mut() else {
         return;
     };
 
-    let CarPhysics { wheel_rotation, wheel_rotation_speed, .. } = car_physics.as_mut();
+    let CarPhysics { wheel_rotation, wheel_rotation_speed, top_speed, .. } = car_physics.as_mut();
 
     if keys.pressed(KeyCode::Left) {
         *wheel_rotation -= *wheel_rotation_speed * time.delta_seconds();
@@ -33,7 +34,15 @@ pub fn update_car_wheel_control(
         };
     }
 
-    *wheel_rotation = wheel_rotation.clamp(0.1, 0.9);
+    // Forward speed of the car (in the direction of driving)
+    let car_speed = car_transform.forward().dot(velocity.linvel);
+    // Normalized car speed
+    let normalized_speed = (car_speed.abs() / *top_speed).clamp(0.0, 1.0);
+
+    // The faster you go the less wheel rotation amplitude you got
+    let amplitude = 0.4 * (1.0 - normalized_speed);
+
+    *wheel_rotation = wheel_rotation.clamp(0.5 - amplitude, 0.5 + amplitude);
 }
 
 pub fn update_car_wheels(
