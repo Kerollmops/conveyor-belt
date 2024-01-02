@@ -65,7 +65,7 @@ fn main() {
             )
                 .run_if(in_state(GameState::Next)),
         )
-        .add_systems(PostUpdate, camera_follow.run_if(in_state(GameState::Next)))
+        .add_systems(PostUpdate, looking_at_car.run_if(in_state(GameState::Next)))
         .run();
 }
 
@@ -112,15 +112,11 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             Camera3dBundle {
                 transform: Transform::from_xyz(6.0, 6.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
                 camera: Camera { hdr: true, order: 1, ..default() },
-                camera_3d: Camera3d {
-                    clear_color: bevy::core_pipeline::clear_color::ClearColorConfig::None,
-                    ..default()
-                },
                 color_grading: ColorGrading { exposure: 1.0, ..default() },
                 tonemapping: Tonemapping::AcesFitted,
                 projection: Projection::Perspective(PerspectiveProjection {
                     near: 1e-8,
-                    ..default()
+                    ..Default::default()
                 }),
                 ..default()
             },
@@ -132,21 +128,22 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             },
         ))
         .insert(TemporalAntiAliasBundle::default())
-        .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(CameraFollow {
-            camera_translation_speed: 2.0,
-            distance_behind: 5.0,
-            fake_transform: Transform::default(),
-        });
+        .insert(ScreenSpaceAmbientOcclusionBundle::default());
+    // .insert(CameraFollow {
+    //     camera_translation_speed: 2.0,
+    //     distance_behind: 5.0,
+    //     fake_transform: Transform::default(),
+    // });
 
     // light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 0_000.0,
+            illuminance: 17_500.0,
+            color: Color::rgb_u8(244, 233, 155),
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(0.1, 1.0, -0.1).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
@@ -159,17 +156,17 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         .insert(CarPhysics {
             chassis_size: Vec3::new(1.0, 0.4, 1.3),
             max_suspension: 0.6,
-            suspension_strength: 350.,
+            suspension_strength: 400.,
             suspension_damping: 250.,
             front_tire_max_grip_factor: 1.0,
             front_tire_min_grip_factor: 0.4,
             back_tire_max_grip_factor: 0.8,
             back_tire_min_grip_factor: 0.3,
             tire_grip_velocity_multiplier: 5.0,
-            tire_mass: 0.6,
+            tire_mass: 0.7,
             top_speed: 350.0,
             wheel_rotation: 0.5,
-            wheel_rotation_speed: 3.0,
+            wheel_rotation_speed: 2.5,
         })
         .insert(Velocity::default())
         .insert(ExternalImpulse::default())
