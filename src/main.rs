@@ -120,7 +120,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
                 tonemapping: Tonemapping::AcesFitted,
                 projection: Projection::Perspective(PerspectiveProjection {
                     near: 1e-8,
-                    ..Default::default()
+                    ..default()
                 }),
                 ..default()
             },
@@ -177,7 +177,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         .insert(ColliderMassProperties::Density(2.0))
         .insert(GravityScale(1.))
         .insert(Damping { linear_damping: 0., angular_damping: 3. })
-        // .insert(Ccd::enabled())
+        .insert(Ccd::enabled())
         // Makes rapier to panic:
         // thread 'Compute Task Pool (0)' panicked at parry3d-0.13.5/src/query/nonlinear_time_of_impact/nonlinear_time_of_impact_support_map_support_map.rs:201:40:
         // internal error: entered unreachable code
