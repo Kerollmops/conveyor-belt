@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_rapier3d::dynamics::Velocity;
+use easer::functions::{Cubic, Easing};
 use lerp::Lerp;
 
 use crate::car_suspension::CarPhysics;
@@ -40,7 +41,9 @@ pub fn update_car_wheel_control(
     let normalized_speed = (car_speed.abs() / *top_speed).clamp(0.0, 1.0);
 
     // The faster you go the less wheel rotation amplitude you got
-    let amplitude = 0.4 * (1.0 - normalized_speed);
+    let increased_normalized_speed = (normalized_speed * 10.0).clamp(0.0, 1.0);
+    let (b, c) = (0.1, 0.5);
+    let amplitude = Cubic::ease_in(1.0 - increased_normalized_speed, b, c - b, 1.0);
 
     *wheel_rotation = wheel_rotation.clamp(0.5 - amplitude, 0.5 + amplitude);
 }

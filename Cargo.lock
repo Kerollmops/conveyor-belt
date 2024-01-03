@@ -1517,6 +1517,7 @@ dependencies = [
  "bevy_asset_loader",
  "bevy_rapier3d",
  "bevy_vector_shapes",
+ "easer",
  "lerp",
  "ordered-float",
 ]
@@ -1714,6 +1715,15 @@ name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
+name = "easer"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fba524f8b83c9c5bde02c2bb1627de9d1f81980489a6d54168cdfd08c258f917"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "ecolor"
