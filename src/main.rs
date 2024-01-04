@@ -18,7 +18,9 @@ use car_acceleration::car_acceleration;
 use car_camera::{camera_follow, CameraFollow};
 use car_steering::update_car_steering;
 use car_suspension::{update_car_suspension, CarPhysics};
-use car_wheel_control::{update_car_wheel_control, update_car_wheels};
+use car_wheel_control::{
+    update_car_wheel_control, update_car_wheel_rotation_speed, update_car_wheels,
+};
 
 mod car_acceleration;
 mod car_camera;
@@ -60,7 +62,8 @@ fn main() {
                 update_car_suspension,
                 update_car_steering,
                 car_acceleration,
-                update_car_wheel_control,
+                update_car_wheel_rotation_speed,
+                update_car_wheel_control.after(update_car_wheel_rotation_speed),
                 update_car_wheels.after(update_car_wheel_control),
             )
                 .run_if(in_state(GameState::Next)),

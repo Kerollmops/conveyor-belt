@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use lerp::Lerp;
+use interpolation::Lerp;
 
 use crate::car_suspension::CarPhysics;
 use crate::CarWheel;
@@ -106,11 +106,11 @@ fn evaluate_power_curve(normalized_speed: f32) -> f32 {
     let teeing_off = 0.4;
     let near_limit = 0.75;
     if normalized_speed <= teeing_off {
-        0.5.lerp_bounded(1.0, normalized_speed / teeing_off)
+        0.5.lerp(&1.0, &(normalized_speed / teeing_off))
     } else if normalized_speed <= near_limit {
         1.0
     } else if normalized_speed != 1.0 {
-        1.0.lerp_bounded(0.3, (normalized_speed - near_limit) / (1.0 - near_limit))
+        1.0.lerp(&0.3, &((normalized_speed - near_limit) / (1.0 - near_limit)))
     } else {
         0.0
     }

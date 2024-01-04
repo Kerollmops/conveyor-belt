@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use lerp::Lerp;
+use interpolation::Lerp;
 
 use crate::car_suspension::CarPhysics;
 
@@ -94,14 +94,14 @@ pub fn update_car_steering(
 
             // The tire grip factor is lower the faster the steering velocity is.
             let tire_grip_factor = if is_front_wheel(i) {
-                front_tire_max_grip_factor.lerp_bounded(
-                    front_tire_min_grip_factor,
-                    normalized_speed * tire_grip_velocity_multiplier,
+                front_tire_max_grip_factor.lerp(
+                    &front_tire_min_grip_factor,
+                    &(normalized_speed * tire_grip_velocity_multiplier),
                 )
             } else {
-                back_tire_max_grip_factor.lerp_bounded(
-                    back_tire_min_grip_factor,
-                    normalized_speed * tire_grip_velocity_multiplier,
+                back_tire_max_grip_factor.lerp(
+                    &back_tire_min_grip_factor,
+                    &(normalized_speed * tire_grip_velocity_multiplier),
                 )
             };
 
