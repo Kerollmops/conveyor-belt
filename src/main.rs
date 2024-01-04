@@ -110,7 +110,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
     commands
         .spawn((
             Camera3dBundle {
-                transform: Transform::from_xyz(6.0, 6.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+                transform: Transform::from_xyz(-6.0, 6.0, -6.0).looking_at(Vec3::ZERO, Vec3::Y),
                 camera: Camera { hdr: true, order: 1, ..default() },
                 color_grading: ColorGrading { exposure: 1.0, ..default() },
                 tonemapping: Tonemapping::AcesFitted,
@@ -139,7 +139,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 17_500.0,
-            color: Color::rgb_u8(244, 233, 155),
+            color: Color::rgb_u8(255, 255, 233),
             shadows_enabled: true,
             ..default()
         },
@@ -155,8 +155,8 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         ))
         .insert(CarPhysics {
             chassis_size: Vec3::new(1.0, 0.4, 1.3),
-            max_suspension: 0.6,
-            suspension_strength: 400.,
+            max_suspension: 0.7,
+            suspension_strength: 1000.,
             suspension_damping: 250.,
             front_tire_max_grip_factor: 0.9,
             front_tire_min_grip_factor: 0.4,
