@@ -59,6 +59,7 @@ fn main() {
         .add_systems(
             Update,
             (
+                read_mass_properties,
                 update_car_suspension,
                 update_car_steering,
                 car_acceleration,
@@ -174,7 +175,14 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         .insert(Velocity::default())
         .insert(ExternalImpulse::default())
         .insert(ExternalForce::default())
-        .insert(ColliderMassProperties::Density(2.0))
+        .insert(ReadMassProperties::default())
+        .insert(ColliderMassProperties::Density(2.5))
+        // .insert(ColliderMassProperties::MassProperties(MassProperties {
+        //     local_center_of_mass: Vec3::new(0.0, -1.0, 0.0),
+        //     mass: 17.6,
+        //     principal_inertia_local_frame: Quat::IDENTITY,
+        //     principal_inertia: Vec3::new(29.861338, 34.261337, 7.333334),
+        // }))
         .insert(GravityScale(1.))
         .insert(Damping { linear_damping: 0., angular_damping: 3. })
         // .insert(Ccd::enabled())
@@ -201,6 +209,12 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
                 }),
             });
         });
+}
+
+fn read_mass_properties(mass_query: Query<&ReadMassProperties, With<CarPhysics>>) {
+    if let Ok(mass_properties) = mass_query.get_single() {
+        println!("{:?}", mass_properties);
+    }
 }
 
 fn setup_map(
