@@ -101,16 +101,17 @@ pub fn update_car_wheels(
             QueryFilter::only_fixed(),
         );
 
+        let angle = if wheel_rotation <= 0.5 {
+            (PI / 3.0).lerp(&0.0, &(wheel_rotation / 0.5))
+        } else {
+            (2.0 * PI).lerp(&(5.0 * PI / 3.0), &((wheel_rotation - 0.5) / 0.5))
+        };
+
         // suspension spring force
         *transform = match hit {
             Some((_entity, ray_intersection)) => {
                 let mut new_transform = match wheel {
                     CarWheel::FrontLeft | CarWheel::FrontRight => {
-                        let angle = if wheel_rotation <= 0.5 {
-                            (PI / 3.0).lerp(&0.0, &(wheel_rotation / 0.5))
-                        } else {
-                            (2.0 * PI).lerp(&(5.0 * PI / 3.0), &((wheel_rotation - 0.5) / 0.5))
-                        };
                         transform.with_rotation(Quat::from_rotation_y(angle))
                     }
                     CarWheel::BackLeft | CarWheel::BackRight => *transform,
@@ -119,7 +120,12 @@ pub fn update_car_wheels(
                     (1.0 - ray_intersection.toi) * max_suspension + wheel_half_height;
                 new_transform
             }
-            None => *transform,
+            None => match wheel {
+                CarWheel::FrontLeft | CarWheel::FrontRight => {
+                    transform.with_rotation(Quat::from_rotation_y(angle))
+                }
+                CarWheel::BackLeft | CarWheel::BackRight => *transform,
+            },
         }
     }
 }
