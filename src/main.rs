@@ -68,7 +68,7 @@ fn main() {
             )
                 .run_if(in_state(GameState::Next)),
         )
-        .add_systems(PostUpdate, looking_at_car.run_if(in_state(GameState::Next)))
+        .add_systems(PostUpdate, camera_follow.run_if(in_state(GameState::Next)))
         .run();
 }
 
@@ -131,17 +131,17 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             },
         ))
         .insert(TemporalAntiAliasBundle::default())
-        .insert(ScreenSpaceAmbientOcclusionBundle::default());
-    // .insert(CameraFollow {
-    //     camera_translation_speed: 2.0,
-    //     distance_behind: 5.0,
-    //     fake_transform: Transform::default(),
-    // });
+        .insert(ScreenSpaceAmbientOcclusionBundle::default())
+        .insert(CameraFollow {
+            camera_translation_speed: 5.0,
+            distance_behind: 9.0,
+            fake_transform: Transform::default(),
+        });
 
     // light
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 17_500.0,
+            illuminance: 12_000.0,
             color: Color::rgb_u8(255, 255, 233),
             shadows_enabled: true,
             ..default()
