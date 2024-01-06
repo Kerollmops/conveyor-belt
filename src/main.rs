@@ -7,7 +7,6 @@ use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAn
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::common_conditions::input_toggle_active;
-use bevy::pbr::ScreenSpaceAmbientOcclusionBundle;
 use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
 use bevy::window::close_on_esc;
@@ -49,7 +48,7 @@ fn main() {
         )
         .insert_resource(Time::new_with(Physics::fixed_hz(60.0)))
         .insert_resource(PhysicsDebugConfig {
-            enabled: false,
+            enabled: true,
             raycast_normal_color: None,
             ..default()
         })
@@ -80,6 +79,8 @@ fn main() {
 struct MyAssets {
     #[asset(path = "cars/models/porsche_911_930_turbo.glb#Scene0")]
     porsche: Handle<Scene>,
+    #[asset(path = "cars/models/chassis.glb#Mesh0/Primitive0")]
+    chassis: Handle<Mesh>,
     #[asset(path = "maps/playground.glb#Scene0")]
     playground: Handle<Mesh>,
 
@@ -112,7 +113,7 @@ enum CarWheel {
 struct MainCamera;
 
 /// set up a simple 3D scene
-fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
+fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>, meshes: ResMut<Assets<Mesh>>) {
     let car_transform = Transform::from_xyz(0.0, 1.6, 0.0);
 
     // camera
@@ -169,7 +170,8 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         .spawn((
             RigidBody::Dynamic,
             TransformBundle::from(car_transform),
-            Collider::cuboid(2.0, 1.0, 4.4),
+            // Collider::cuboid(2.0, 1.0, 4.4),
+            Collider::trimesh_from_mesh(meshes.get(&assets.chassis).unwrap()).unwrap(),
             AngularDamping(3.0),
             Mass(30.0 - 8.8), // there always is 8.8 more ???
             CenterOfMass(Vec3::new(0.0, -0.15, 0.1)),
@@ -177,7 +179,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
                 chassis_size,
                 max_suspension,
                 suspension_strength: 450.,
-                suspension_damping: 100.,
+                suspension_damping: 50.,
                 front_tire_max_grip_factor: 0.9,
                 front_tire_min_grip_factor: 0.4,
                 back_tire_max_grip_factor: 0.7,
