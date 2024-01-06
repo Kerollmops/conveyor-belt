@@ -40,7 +40,7 @@ pub fn car_acceleration(
         let hit = hits.as_slice().get(0);
 
         // acceleration / braking
-        if hit.is_some() && matches!(car_wheel, CarWheel::FrontRight | CarWheel::FrontLeft) {
+        if hit.is_some() && matches!(car_wheel, CarWheel::BackRight | CarWheel::BackLeft) {
             // Forward speed of the car (in the direction of driving)
             let car_speed = car_transform.forward().dot(lin_vel);
 
