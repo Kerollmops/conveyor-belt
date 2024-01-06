@@ -62,7 +62,7 @@ pub fn update_car_steering(
             };
 
             // World-space velocity of the suspension.
-            let tire_world_vel = lin_vel + ang_vel.cross(ray.origin);
+            let tire_world_vel = lin_vel + ang_vel.cross(car_transform.rotation * ray.origin);
 
             // What is the tire's velocity in the steering direction?
             // note that spring_dir is a unit vector, so this returns

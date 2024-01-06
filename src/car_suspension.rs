@@ -70,7 +70,7 @@ pub fn update_car_suspension(
             let suspension_dir = car_transform.up();
 
             // World-space velocity of this tire.
-            let tire_world_vel = lin_vel + ang_vel.cross(ray.origin);
+            let tire_world_vel = lin_vel + ang_vel.cross(car_transform.rotation * ray.origin);
 
             // Calculate offset from the raycast.
             let offset = max_suspension - time_of_impact;
