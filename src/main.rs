@@ -12,6 +12,8 @@ use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
+use bevy_dolly::dolly_type::Rig;
+use bevy_dolly::system::Dolly;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
 use bevy_xpbd_3d::prelude::*;
@@ -46,7 +48,11 @@ fn main() {
                 .load_collection::<MyAssets>(),
         )
         .insert_resource(Time::new_with(Physics::fixed_hz(60.0)))
-        .insert_resource(PhysicsDebugConfig { raycast_normal_color: None, ..default() })
+        .insert_resource(PhysicsDebugConfig {
+            enabled: false,
+            raycast_normal_color: None,
+            ..default()
+        })
         .insert_resource(Msaa::Off)
         .insert_resource(AmbientLight { brightness: 0.0, ..default() })
         .register_type::<CarPhysics>()
@@ -56,6 +62,8 @@ fn main() {
         .add_systems(
             Update,
             (
+                Dolly::<MainCamera>::update_active,
+                update_camera,
                 update_car_suspension,
                 update_car_steering,
                 car_acceleration,
@@ -65,7 +73,6 @@ fn main() {
             )
                 .run_if(in_state(GameState::Next)),
         )
-        .add_systems(PostUpdate, looking_at_car.run_if(in_state(GameState::Next)))
         .run();
 }
 
@@ -101,36 +108,48 @@ enum CarWheel {
     BackLeft,
 }
 
+#[derive(Component)]
+struct MainCamera;
+
 /// set up a simple 3D scene
 fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
+    let car_transform = Transform::from_xyz(0.0, 1.6, 0.0);
+
     // camera
-    commands
-        .spawn((
-            Camera3dBundle {
-                transform: Transform::from_xyz(-6.0, 6.0, -6.0).looking_at(Vec3::ZERO, Vec3::Y),
-                camera: Camera { hdr: true, order: 1, ..default() },
-                color_grading: ColorGrading { exposure: 1.0, ..default() },
-                tonemapping: Tonemapping::AcesFitted,
-                projection: Projection::Perspective(PerspectiveProjection {
-                    near: 1e-8,
-                    ..Default::default()
-                }),
-                ..default()
-            },
-            Fxaa::default(),
-            BloomSettings::default(),
-            EnvironmentMapLight {
-                diffuse_map: assets.diffuse_map.clone(),
-                specular_map: assets.specular_map.clone(),
-            },
-        ))
-        .insert(TemporalAntiAliasBundle::default())
-        .insert(ScreenSpaceAmbientOcclusionBundle::default());
-    // .insert(CameraFollow {
-    //     camera_translation_speed: 5.0,
-    //     distance_behind: 9.0,
-    //     fake_transform: Transform::default(),
-    // });
+    commands.spawn((
+        MainCamera,
+        Camera3dBundle {
+            transform: Transform::from_xyz(-6.0, 6.0, -6.0).looking_at(Vec3::ZERO, Vec3::Y),
+            camera: Camera { hdr: true, order: 1, ..default() },
+            color_grading: ColorGrading { exposure: 1.0, ..default() },
+            tonemapping: Tonemapping::AcesFitted,
+            projection: Projection::Perspective(PerspectiveProjection {
+                near: 1e-8,
+                ..Default::default()
+            }),
+            ..default()
+        },
+        Fxaa::default(),
+        BloomSettings::default(),
+        EnvironmentMapLight {
+            diffuse_map: assets.diffuse_map.clone(),
+            specular_map: assets.specular_map.clone(),
+        },
+        TemporalAntiAliasBundle::default(),
+        // ScreenSpaceAmbientOcclusionBundle::default(),
+        Rig::builder()
+            .with(bevy_dolly::dolly::drivers::Position::new(car_transform.translation))
+            .with(bevy_dolly::dolly::drivers::Rotation::new(car_transform.rotation))
+            .with(bevy_dolly::dolly::drivers::Smooth::new_position(1.25).predictive(true))
+            .with(bevy_dolly::dolly::drivers::Arm::new(Vec3::new(0.0, 2.5, 8.0)))
+            .with(bevy_dolly::dolly::drivers::Smooth::new_position(2.5))
+            .with(
+                bevy_dolly::dolly::drivers::LookAt::new(car_transform.translation + Vec3::Y)
+                    .tracking_smoothness(1.25)
+                    .tracking_predictive(true),
+            )
+            .build(),
+    ));
 
     // light
     commands.spawn(DirectionalLightBundle {
@@ -144,7 +163,6 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         ..default()
     });
 
-    let car_transform = Transform::from_xyz(0.0, 1.6, 0.0);
     let chassis_size = Vec3::new(0.95, 0.4, 1.3);
     let max_suspension = 0.7;
     commands
@@ -154,7 +172,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             Collider::cuboid(2.0, 1.0, 4.4),
             AngularDamping(3.0),
             Mass(30.0 - 8.8), // there always is 8.8 more ???
-            CenterOfMass(Vec3::new(0.0, -0.1, 0.1)),
+            CenterOfMass(Vec3::new(0.0, -0.15, 0.1)),
             CarPhysics {
                 chassis_size,
                 max_suspension,
@@ -271,6 +289,16 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
         });
 }
 
+fn update_camera(mut rig_q: Query<&mut Rig>, car_q: Query<&Transform, With<CarPhysics>>) {
+    use bevy_dolly::dolly::drivers::{LookAt, Position, Rotation};
+
+    let mut rig = rig_q.single_mut();
+    let transform = car_q.single();
+    rig.driver_mut::<Position>().position = transform.translation;
+    rig.driver_mut::<Rotation>().rotation = transform.rotation;
+    rig.driver_mut::<LookAt>().target = transform.translation + Vec3::Y;
+}
+
 fn setup_map(
     mut commands: Commands,
     assets: Res<MyAssets>,
@@ -293,17 +321,4 @@ fn setup_map(
             },
         ))
         .insert(collider);
-}
-
-fn looking_at_car(
-    car_q: Query<&Transform, (With<CarPhysics>, Without<Camera>)>,
-    mut camera_q: Query<&mut Transform, (With<Camera>, Without<CarPhysics>)>,
-) {
-    let Ok(car_transform) = car_q.get_single() else {
-        return;
-    };
-
-    for mut camera_transform in camera_q.iter_mut() {
-        camera_transform.look_at(car_transform.translation, Vec3::ZERO);
-    }
 }
