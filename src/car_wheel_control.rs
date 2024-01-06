@@ -1,25 +1,24 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_rapier3d::dynamics::Velocity;
-use bevy_rapier3d::pipeline::QueryFilter;
-use bevy_rapier3d::plugin::RapierContext;
+use bevy_xpbd_3d::prelude::*;
 use interpolation::Lerp;
 
 use crate::car_suspension::CarPhysics;
-use crate::CarWheel;
+use crate::{CarWheel, RayCastWheelEntity};
 
 pub fn update_car_wheel_rotation_speed(
-    mut car_query: Query<(&mut CarPhysics, &Velocity, &Transform)>,
+    mut car_query: Query<(&mut CarPhysics, &LinearVelocity, &Transform)>,
 ) {
-    let Ok((mut car_physics, velocity, car_transform)) = car_query.get_single_mut() else {
+    let Ok((mut car_physics, &LinearVelocity(lin_vel), car_transform)) = car_query.get_single_mut()
+    else {
         return;
     };
 
     let CarPhysics { wheel_rotation_speed, top_speed, .. } = car_physics.as_mut();
 
     // Forward speed of the car (in the direction of driving)
-    let car_speed = car_transform.forward().dot(velocity.linvel);
+    let car_speed = car_transform.forward().dot(lin_vel);
     // Normalized car speed
     let normalized_speed = (car_speed.abs() / *top_speed).clamp(0.0, 1.0);
 
@@ -60,46 +59,23 @@ pub fn update_car_wheel_control(
 }
 
 pub fn update_car_wheels(
-    mut car_query: Query<(&mut CarPhysics, &Transform), Without<CarWheel>>,
-    rapier_context: Res<RapierContext>,
+    mut car_query: Query<&CarPhysics, Without<CarWheel>>,
     mut wheels_transforms_query: Query<(&CarWheel, &mut Transform), Without<CarPhysics>>,
+    raycast_query: Query<(&RayCastWheelEntity, &RayCaster, &RayHits)>,
 ) {
-    let Ok((car_physics, car_transform)) = car_query.get_single_mut() else {
+    let Ok(car_physics) = car_query.get_single_mut() else {
         return;
     };
 
-    let CarPhysics { wheel_rotation, chassis_size, max_suspension, .. } = *car_physics;
-
-    let front_right = car_transform.translation
-        + (car_transform.down() * chassis_size.y + car_transform.forward() * chassis_size.z)
-        + (car_transform.right() * chassis_size.x);
-
-    let front_left = car_transform.translation
-        + (car_transform.down() * chassis_size.y + car_transform.forward() * chassis_size.z)
-        + (car_transform.left() * chassis_size.x);
-
-    let back_right = car_transform.translation
-        + (car_transform.down() * chassis_size.y + car_transform.back() * chassis_size.z)
-        + (car_transform.right() * chassis_size.x);
-
-    let back_left = car_transform.translation
-        + (car_transform.down() * chassis_size.y + car_transform.back() * chassis_size.z)
-        + (car_transform.left() * chassis_size.x);
-
-    let wheels_pos = [front_right, front_left, back_right, back_left];
-    let mut wheels_transforms: Vec<_> = wheels_transforms_query.iter_mut().collect();
-    wheels_transforms.sort_by_key(|(w, _)| *w);
+    let CarPhysics { wheel_rotation, max_suspension, .. } = *car_physics;
 
     let wheel_half_height = 0.3;
 
-    for ((wheel, mut transform), wheel_pos) in wheels_transforms.into_iter().zip(wheels_pos) {
-        let hit = rapier_context.cast_ray_and_get_normal(
-            wheel_pos,
-            car_transform.down(),
-            max_suspension,
-            true,
-            QueryFilter::only_fixed(),
-        );
+    for (&RayCastWheelEntity(entity), _, hits) in &raycast_query {
+        let (car_wheel, mut wheel_transform) = wheels_transforms_query.get_mut(entity).unwrap();
+
+        assert!(hits.len() <= 1);
+        let hit = hits.as_slice().get(0);
 
         let angle = if wheel_rotation <= 0.5 {
             (PI / 3.0).lerp(&0.0, &(wheel_rotation / 0.5))
@@ -107,24 +83,23 @@ pub fn update_car_wheels(
             (2.0 * PI).lerp(&(5.0 * PI / 3.0), &((wheel_rotation - 0.5) / 0.5))
         };
 
-        // suspension spring force
-        *transform = match hit {
-            Some((_entity, ray_intersection)) => {
-                let mut new_transform = match wheel {
+        *wheel_transform = match hit {
+            Some(RayHitData { time_of_impact, .. }) => {
+                let mut new_transform = match car_wheel {
                     CarWheel::FrontLeft | CarWheel::FrontRight => {
-                        transform.with_rotation(Quat::from_rotation_y(angle))
+                        wheel_transform.with_rotation(Quat::from_rotation_y(angle))
                     }
-                    CarWheel::BackLeft | CarWheel::BackRight => *transform,
+                    CarWheel::BackLeft | CarWheel::BackRight => *wheel_transform,
                 };
                 new_transform.translation.y =
-                    (1.0 - ray_intersection.toi) * max_suspension + wheel_half_height;
+                    (1.0 - (time_of_impact / max_suspension)) * max_suspension + wheel_half_height;
                 new_transform
             }
-            None => match wheel {
+            None => match car_wheel {
                 CarWheel::FrontLeft | CarWheel::FrontRight => {
-                    transform.with_rotation(Quat::from_rotation_y(angle))
+                    wheel_transform.with_rotation(Quat::from_rotation_y(angle))
                 }
-                CarWheel::BackLeft | CarWheel::BackRight => *transform,
+                CarWheel::BackLeft | CarWheel::BackRight => *wheel_transform,
             },
         }
     }
