@@ -45,22 +45,17 @@ fn main() {
                 .continue_to_state(GameState::Next)
                 .load_collection::<MyAssets>(),
         )
-        // .insert_resource(RapierConfiguration {
-        //     timestep_mode: TimestepMode::Fixed { dt: 1.0 / 75.0, substeps: 1 },
-        //     ..default()
-        // })
+        .insert_resource(Time::new_with(Physics::fixed_hz(60.0)))
         .insert_resource(PhysicsDebugConfig { raycast_normal_color: None, ..default() })
         .insert_resource(Msaa::Off)
         .insert_resource(AmbientLight { brightness: 0.0, ..default() })
         .register_type::<CarPhysics>()
         // .register_type::<CameraFollow>()
         .add_systems(OnEnter(GameState::Next), (setup_with_assets, setup_map))
-        // .add_systems(PreUpdate, reset_car_external_forces.run_if(in_state(GameState::Next)))
         .add_systems(Update, close_on_esc)
         .add_systems(
             Update,
             (
-                // read_mass_properties,
                 update_car_suspension,
                 update_car_steering,
                 car_acceleration,
@@ -158,12 +153,13 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             TransformBundle::from(car_transform),
             Collider::cuboid(2.0, 1.0, 4.4),
             AngularDamping(3.0),
-            Mass(40.0),
+            Mass(30.0 - 8.8), // there always is 8.8 more ???
+            CenterOfMass(Vec3::new(0.0, -0.1, 0.1)),
             CarPhysics {
                 chassis_size,
                 max_suspension,
-                suspension_strength: 350.,
-                suspension_damping: 50.,
+                suspension_strength: 450.,
+                suspension_damping: 100.,
                 front_tire_max_grip_factor: 0.9,
                 front_tire_min_grip_factor: 0.4,
                 back_tire_max_grip_factor: 0.7,

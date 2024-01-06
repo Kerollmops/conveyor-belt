@@ -63,9 +63,6 @@ pub fn update_car_suspension(
 
         // suspension spring force
         if let Some(RayHitData { time_of_impact, .. }) = hit {
-            // painter.set_config(ShapeConfig { color: Color::GREEN, ..painter.config().clone() });
-            // painter.line(wheel, ray_intersection.point);
-
             // World-space direction of the spring force.
             let suspension_dir = car_transform.up();
 

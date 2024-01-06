@@ -16,7 +16,7 @@ pub fn car_acceleration(
 ) {
     let Ok((
         car_physics,
-        &LinearVelocity(linear_velocity),
+        &LinearVelocity(lin_vel),
         mut external_force,
         &car_transform,
         &CenterOfMass(car_center_of_mass),
@@ -42,7 +42,7 @@ pub fn car_acceleration(
         // acceleration / braking
         if hit.is_some() && matches!(car_wheel, CarWheel::FrontRight | CarWheel::FrontLeft) {
             // Forward speed of the car (in the direction of driving)
-            let car_speed = car_transform.forward().dot(linear_velocity);
+            let car_speed = car_transform.forward().dot(lin_vel);
 
             // World-space direction of the acceleration/braking force.
             #[allow(clippy::collapsible_else_if)]
