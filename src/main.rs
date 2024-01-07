@@ -6,7 +6,6 @@ use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
@@ -38,8 +37,6 @@ fn main() {
             HookPlugin,
             PhysicsPlugins::default(),
             PhysicsDebugPlugin::default(),
-            FrameTimeDiagnosticsPlugin,
-            LogDiagnosticsPlugin::default(),
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)),
         ))
         .add_loading_state(
@@ -47,16 +44,15 @@ fn main() {
                 .continue_to_state(GameState::Next)
                 .load_collection::<MyAssets>(),
         )
-        .insert_resource(Time::new_with(Physics::fixed_hz(60.0)))
+        .insert_resource(Time::new_with(Physics::fixed_hz(144.0)))
         .insert_resource(PhysicsDebugConfig {
-            enabled: true,
+            enabled: false,
             raycast_normal_color: None,
             ..default()
         })
         .insert_resource(Msaa::Off)
         .insert_resource(AmbientLight { brightness: 0.0, ..default() })
         .register_type::<CarPhysics>()
-        // .register_type::<CameraFollow>()
         .add_systems(OnEnter(GameState::Next), (setup_with_assets, setup_map))
         .add_systems(Update, close_on_esc)
         .add_systems(
@@ -194,15 +190,15 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             CarPhysics {
                 chassis_size,
                 max_suspension,
-                suspension_strength: 250.,
-                suspension_damping: 50.,
+                suspension_strength: 450.,
+                suspension_damping: 100.,
                 front_tire_max_grip_factor: 0.9,
                 front_tire_min_grip_factor: 0.4,
                 back_tire_max_grip_factor: 0.7,
                 back_tire_min_grip_factor: 0.3,
                 tire_grip_velocity_multiplier: 5.0,
                 tire_mass: 0.7,
-                top_speed: 250.0,
+                top_speed: 350.0,
                 wheel_rotation: 0.5,
                 wheel_rotation_speed: 1.5,
             },
