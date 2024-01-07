@@ -6,6 +6,7 @@ use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
@@ -17,7 +18,6 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_scene_hook::{HookPlugin, HookedSceneBundle, SceneHook};
 use bevy_xpbd_3d::prelude::*;
 use car_acceleration::car_acceleration;
-// use car_camera::{camera_follow, CameraFollow};
 use car_steering::update_car_steering;
 use car_suspension::{update_car_suspension, CarPhysics};
 use car_wheel_control::{
@@ -25,7 +25,6 @@ use car_wheel_control::{
 };
 
 mod car_acceleration;
-// mod car_camera;
 mod car_steering;
 mod car_suspension;
 mod car_wheel_control;
@@ -39,6 +38,8 @@ fn main() {
             HookPlugin,
             PhysicsPlugins::default(),
             PhysicsDebugPlugin::default(),
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)),
         ))
         .add_loading_state(
@@ -69,6 +70,7 @@ fn main() {
                 update_car_wheel_rotation_speed,
                 update_car_wheel_control.after(update_car_wheel_rotation_speed),
                 update_car_wheels.after(update_car_wheel_control),
+                text_kmh_update_system,
             )
                 .run_if(in_state(GameState::Next)),
         )
@@ -79,8 +81,8 @@ fn main() {
 struct MyAssets {
     #[asset(path = "cars/models/porsche_911_930_turbo.glb#Scene0")]
     porsche: Handle<Scene>,
-    #[asset(path = "cars/models/chassis.glb#Mesh0/Primitive0")]
-    chassis: Handle<Mesh>,
+    // #[asset(path = "cars/models/chassis.glb#Mesh0/Primitive0")]
+    // chassis: Handle<Mesh>,
     #[asset(path = "maps/playground.glb#Scene0")]
     playground: Handle<Mesh>,
 
@@ -113,7 +115,9 @@ enum CarWheel {
 struct MainCamera;
 
 /// set up a simple 3D scene
-fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>, meshes: ResMut<Assets<Mesh>>) {
+fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
+    use bevy_dolly::dolly::drivers::*;
+
     let car_transform = Transform::from_xyz(0.0, 1.6, 0.0);
 
     // camera
@@ -137,19 +141,31 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>, meshes: ResM
             specular_map: assets.specular_map.clone(),
         },
         TemporalAntiAliasBundle::default(),
+        // Already declared by the Rig camera
         // ScreenSpaceAmbientOcclusionBundle::default(),
+        // Look at and follow vehicule
         Rig::builder()
-            .with(bevy_dolly::dolly::drivers::Position::new(car_transform.translation))
-            .with(bevy_dolly::dolly::drivers::Rotation::new(car_transform.rotation))
-            .with(bevy_dolly::dolly::drivers::Smooth::new_position(1.25).predictive(true))
-            .with(bevy_dolly::dolly::drivers::Arm::new(Vec3::new(0.0, 2.5, 8.0)))
-            .with(bevy_dolly::dolly::drivers::Smooth::new_position(2.5))
+            .with(Position::new(car_transform.translation))
+            .with(Rotation::new(car_transform.rotation))
+            .with(Smooth::new_position(2.5))
+            .with(Arm::new(Vec3::new(0.0, 2.5, 8.0)))
             .with(
-                bevy_dolly::dolly::drivers::LookAt::new(car_transform.translation + Vec3::Y)
+                LookAt::new(car_transform.translation + Vec3::Y)
                     .tracking_smoothness(1.25)
                     .tracking_predictive(true),
             )
             .build(),
+        // // Look at vehicule from a fixed point
+        // Rig::builder()
+        //     .with(Position::new(Vec3::new(6.0, 6.0, 6.0)))
+        //     .with(Rotation::new(Quat::IDENTITY))
+        //     .with(Smooth::new_position(1.25).predictive(true))
+        //     .with(
+        //         LookAt::new(car_transform.translation + Vec3::Y)
+        //             .tracking_smoothness(1.25)
+        //             .tracking_predictive(true),
+        //     )
+        //     .build(),
     ));
 
     // light
@@ -170,15 +186,15 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>, meshes: ResM
         .spawn((
             RigidBody::Dynamic,
             TransformBundle::from(car_transform),
-            // Collider::cuboid(2.0, 1.0, 4.4),
-            Collider::trimesh_from_mesh(meshes.get(&assets.chassis).unwrap()).unwrap(),
+            Collider::cuboid(2.0, 1.0, 4.4),
+            // Collider::trimesh_from_mesh(meshes.get(&assets.chassis).unwrap()).unwrap(),
             AngularDamping(3.0),
             Mass(30.0 - 8.8), // there always is 8.8 more ???
-            CenterOfMass(Vec3::new(0.0, -0.15, 0.1)),
+            CenterOfMass(Vec3::new(0.0, -0.3, 0.3)),
             CarPhysics {
                 chassis_size,
                 max_suspension,
-                suspension_strength: 450.,
+                suspension_strength: 250.,
                 suspension_damping: 50.,
                 front_tire_max_grip_factor: 0.9,
                 front_tire_min_grip_factor: 0.4,
@@ -186,7 +202,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>, meshes: ResM
                 back_tire_min_grip_factor: 0.3,
                 tire_grip_velocity_multiplier: 5.0,
                 tire_mass: 0.7,
-                top_speed: 350.0,
+                top_speed: 250.0,
                 wheel_rotation: 0.5,
                 wheel_rotation_speed: 1.5,
             },
@@ -289,6 +305,42 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>, meshes: ResM
                 }),
             });
         });
+
+    // Current peed of the car in km/h
+    commands.spawn((
+        TextBundle::from_sections([
+            TextSection::from_style(TextStyle {
+                font_size: 30.0,
+                color: Color::ORANGE_RED,
+                ..default()
+            }),
+            TextSection::new(" km/h", TextStyle { font_size: 30.0, ..default() }),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            left: Val::Px(5.0),
+            ..default()
+        })
+        .with_background_color(Color::DARK_GRAY.with_a(0.8)),
+        KmhText,
+    ));
+}
+
+#[derive(Component)]
+struct KmhText;
+
+fn text_kmh_update_system(
+    car_q: Query<(&LinearVelocity, &Transform), With<CarPhysics>>,
+    mut query: Query<&mut Text, With<KmhText>>,
+) {
+    let Ok((&LinearVelocity(lin_vel), car_transform)) = car_q.get_single() else { return };
+    let car_speed_ms = car_transform.forward().dot(lin_vel).abs();
+    let car_speed_kmh = car_speed_ms * 3.6;
+
+    for mut text in &mut query {
+        text.sections[0].value = format!("{car_speed_kmh:>3.0}");
+    }
 }
 
 fn update_camera(mut rig_q: Query<&mut Rig>, car_q: Query<&Transform, With<CarPhysics>>) {
