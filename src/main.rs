@@ -9,6 +9,7 @@ use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
+use bevy::transform::TransformSystem;
 use bevy::utils::Duration;
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
@@ -66,8 +67,6 @@ fn main() {
         .add_systems(
             Update,
             (
-                Dolly::<MainCamera>::update_active,
-                update_camera,
                 daylight_cycle,
                 update_car_suspension,
                 update_car_steering,
@@ -77,6 +76,13 @@ fn main() {
                 update_car_wheels.after(update_car_wheel_control),
                 text_kmh_update_system,
             )
+                .run_if(in_state(GameState::Next)),
+        )
+        .add_systems(
+            PostUpdate,
+            (update_camera, Dolly::<MainCamera>::update_active.after(update_camera))
+                .after(PhysicsSet::Sync)
+                .before(TransformSystem::TransformPropagate)
                 .run_if(in_state(GameState::Next)),
         )
         .run();
