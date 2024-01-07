@@ -9,8 +9,13 @@ use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::input::common_conditions::input_toggle_active;
 use bevy::prelude::*;
 use bevy::render::view::ColorGrading;
+use bevy::utils::Duration;
 use bevy::window::close_on_esc;
 use bevy_asset_loader::prelude::*;
+use bevy_atmosphere::collection::nishita::Nishita;
+use bevy_atmosphere::model::AtmosphereModel;
+use bevy_atmosphere::plugin::{AtmosphereCamera, AtmospherePlugin};
+use bevy_atmosphere::system_param::AtmosphereMut;
 use bevy_dolly::dolly_type::Rig;
 use bevy_dolly::system::Dolly;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -37,6 +42,7 @@ fn main() {
             HookPlugin,
             PhysicsPlugins::default(),
             PhysicsDebugPlugin::default(),
+            AtmospherePlugin,
             WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::I)),
         ))
         .add_loading_state(
@@ -50,6 +56,8 @@ fn main() {
             raycast_normal_color: None,
             ..default()
         })
+        .insert_resource(AtmosphereModel::default())
+        .insert_resource(CycleTimer::new(Duration::from_secs(1)))
         .insert_resource(Msaa::Off)
         .insert_resource(AmbientLight { brightness: 0.0, ..default() })
         .register_type::<CarPhysics>()
@@ -60,6 +68,7 @@ fn main() {
             (
                 Dolly::<MainCamera>::update_active,
                 update_camera,
+                daylight_cycle,
                 update_car_suspension,
                 update_car_steering,
                 car_acceleration,
@@ -110,6 +119,39 @@ enum CarWheel {
 #[derive(Component)]
 struct MainCamera;
 
+#[derive(Component)]
+struct Sun;
+
+#[derive(Resource)]
+struct CycleTimer(Timer);
+
+impl CycleTimer {
+    fn new(duration: Duration) -> CycleTimer {
+        let mut timer = Timer::new(duration, TimerMode::Repeating);
+        timer.set_elapsed(duration);
+        CycleTimer(timer)
+    }
+}
+
+fn daylight_cycle(
+    mut atmosphere: AtmosphereMut<Nishita>,
+    mut query: Query<(&mut Transform, &mut DirectionalLight), With<Sun>>,
+    mut timer: ResMut<CycleTimer>,
+    time: Res<Time>,
+) {
+    timer.0.tick(time.delta());
+
+    if timer.0.finished() {
+        let t = time.elapsed_seconds_wrapped() / 1500.0; // speed of a day
+        atmosphere.sun_position = Vec3::new(0., t.sin(), t.cos());
+
+        if let Some((mut light_trans, mut directional)) = query.single_mut().into() {
+            light_trans.rotation = Quat::from_rotation_x(-t);
+            directional.illuminance = t.sin().max(0.0).powf(2.0) * 12_000.0;
+        }
+    }
+}
+
 /// set up a simple 3D scene
 fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
     use bevy_dolly::dolly::drivers::*;
@@ -119,6 +161,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
     // camera
     commands.spawn((
         MainCamera,
+        AtmosphereCamera::default(),
         Camera3dBundle {
             transform: Transform::from_xyz(-6.0, 6.0, -6.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera { hdr: true, order: 1, ..default() },
@@ -165,16 +208,19 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
     ));
 
     // light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 12_000.0,
-            color: Color::rgb_u8(255, 255, 233),
-            shadows_enabled: true,
+    commands.spawn((
+        Sun,
+        DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                // illuminance: 12_000.0,
+                // color: Color::rgb_u8(255, 255, 233),
+                shadows_enabled: true,
+                ..default()
+            },
+            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    ));
 
     let chassis_size = Vec3::new(0.95, 0.4, 1.3);
     let max_suspension = 0.7;
@@ -186,12 +232,12 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             // Collider::trimesh_from_mesh(meshes.get(&assets.chassis).unwrap()).unwrap(),
             AngularDamping(3.0),
             Mass(30.0 - 8.8), // there always is 8.8 more ???
-            CenterOfMass(Vec3::new(0.0, -0.3, 0.3)),
+            // CenterOfMass(Vec3::new(0.0, -0.3, 0.3)),
             CarPhysics {
                 chassis_size,
                 max_suspension,
-                suspension_strength: 450.,
-                suspension_damping: 100.,
+                suspension_strength: 550.,
+                suspension_damping: 150.,
                 front_tire_max_grip_factor: 0.9,
                 front_tire_min_grip_factor: 0.4,
                 back_tire_max_grip_factor: 0.7,
