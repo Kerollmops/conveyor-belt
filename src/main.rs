@@ -147,7 +147,7 @@ fn setup_with_assets(mut commands: Commands, assets: Res<MyAssets>) {
             .with(Arm::new(Vec3::new(0.0, 2.5, 8.0)))
             .with(
                 LookAt::new(car_transform.translation + Vec3::Y)
-                    .tracking_smoothness(1.25)
+                    .tracking_smoothness(2.0)
                     .tracking_predictive(true),
             )
             .build(),
